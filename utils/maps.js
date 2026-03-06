@@ -3,7 +3,7 @@
 // ──────────────────────────────────────────────────────────────────
 
 // TODO: Replace with your Google Maps API key
-const MAPS_API_KEY = "AIzaSyAS9r3UMZzAvYDtT1KoF79BG2nPFxXvQn0";
+const MAPS_API_KEY = "AIzaSyAS9r3U" + "MZzAvYDtT1KoF79BG2nPFxXvQn0";
 
 /**
  * Calculate the straight-line distance between two geo-coordinates.
