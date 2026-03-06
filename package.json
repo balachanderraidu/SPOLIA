@@ -1,0 +1,9 @@
+{
+  "name": "spolia",
+  "version": "1.0.0",
+  "description": "Hyperlocal reclaimed construction materials marketplace",
+  "engines": {
+    "node": ">=20"
+  },
+  "private": true
+}

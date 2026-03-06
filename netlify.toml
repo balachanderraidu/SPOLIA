@@ -2,6 +2,10 @@
   publish = "."
   command = ""
 
+[build.environment]
+  NODE_VERSION = "20"
+  SECRETS_SCAN_ENABLED = "false"
+
 # API keys in this project are client-side, domain-restricted keys.
 # They are intentionally public and secured via allowed-domains in each
 # respective developer console (Google Cloud, Firebase, AI Studio).
