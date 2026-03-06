@@ -2,6 +2,9 @@
 // app.js  —  Spolia SPA Router & Application Core
 // ──────────────────────────────────────────────────────────────────
 
+// 🔧 Toggle this to skip Firebase Auth during development
+const DEMO_MODE = true;
+
 import { FirebaseAuth, FirebaseDB, MOCK_USER_PROFILE } from './firebase-config.js';
 import { RadarScreen } from './components/radar.js';
 import { ScannerScreen } from './components/scanner.js';
@@ -208,40 +211,52 @@ async function init() {
     document.title = 'Welcome to Spolia';
 
     // ── Auth State Listener ──────────────────────────────────────
-    FirebaseAuth.onAuthStateChanged((user) => {
-        if (user) {
-            App.currentUser = user;
-            App.isAuthenticated = true;
+    if (DEMO_MODE) {
+        // Skip Firebase Auth — load mock user and go straight to Radar
+        App.currentUser = MOCK_USER_PROFILE;
+        App.isAuthenticated = true;
+        navigate('radar');
+        // Add a demo badge to the nav
+        const demoBadge = document.createElement('div');
+        demoBadge.style.cssText = `
+            position:fixed;top:env(safe-area-inset-top,8px);right:12px;
+            background:rgba(255,215,0,0.15);border:1px solid rgba(255,215,0,0.3);
+            color:#FFD700;font:600 10px/1 Inter,sans-serif;
+            letter-spacing:0.08em;text-transform:uppercase;
+            padding:4px 8px;border-radius:100px;z-index:999;
+            pointer-events:none;
+        `;
+        demoBadge.textContent = 'Demo Mode';
+        document.body.appendChild(demoBadge);
+    } else {
+        FirebaseAuth.onAuthStateChanged((user) => {
+            if (user) {
+                App.currentUser = user;
+                App.isAuthenticated = true;
 
-            // Ensure user profile exists in Firestore
-            if (typeof FirebaseDB.upsertUserProfile === 'function') {
-                FirebaseDB.upsertUserProfile(user.uid, {
-                    displayName: user.displayName || '',
-                    email: user.email || '',
-                    photoURL: user.photoURL || null
-                });
+                if (typeof FirebaseDB.upsertUserProfile === 'function') {
+                    FirebaseDB.upsertUserProfile(user.uid, {
+                        displayName: user.displayName || '',
+                        email: user.email || '',
+                        photoURL: user.photoURL || null
+                    });
+                }
+
+                const current = App.routes[App.currentRoute];
+                if (current?.public) {
+                    navigate('radar');
+                    App.screenInstances['radar']?.onActivate?.({});
+                }
+                showToast(`Welcome back, ${user.displayName?.split(' ')[0] || 'back'}! ✦`, 'success', 3000);
+
+            } else {
+                App.currentUser = null;
+                App.isAuthenticated = false;
+                const current = App.routes[App.currentRoute];
+                if (!current?.public) navigate('login');
             }
-
-            // Redirect away from auth screens if already logged in
-            const current = App.routes[App.currentRoute];
-            if (current?.public) {
-                navigate('radar');
-                const radar = App.screenInstances['radar'];
-                if (radar?.onActivate) radar.onActivate({});
-            }
-            showToast(`Welcome back, ${user.displayName?.split(' ')[0] || 'back'}! ✦`, 'success', 3000);
-
-        } else {
-            App.currentUser = null;
-            App.isAuthenticated = false;
-
-            // Redirect to login if on a protected screen
-            const current = App.routes[App.currentRoute];
-            if (!current?.public) {
-                navigate('login');
-            }
-        }
-    });
+        });
+    }
 }
 
 // ── SVG Icons ─────────────────────────────────────────────────────
