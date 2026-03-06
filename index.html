@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="description"
+    content="Spolia — The exclusive exchange for reclaimed construction materials. Verified architects, contractors, and vendors trade surplus materials, reduce costs, and cut carbon footprints.">
+  <meta name="theme-color" content="#0D0D0D">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Spolia">
+
+  <!-- Open Graph -->
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Spolia — The Second Life of Design">
+  <meta property="og:description"
+    content="The exclusive exchange for reclaimed construction materials. Verified professionals. Guaranteed quality. Measurable impact.">
+  <meta property="og:image" content="/assets/og-image.jpg">
+
+  <title>The Radar — Spolia</title>
+
+  <!-- PWA Manifest -->
+  <link rel="manifest" href="/manifest.json">
+
+  <!-- Apple Touch Icon -->
+  <link rel="apple-touch-icon" href="/assets/icons/icon-192.png">
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:wght@600;700&display=swap"
+    rel="stylesheet">
+
+  <!-- Styles -->
+  <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+
+  <!-- App Shell -->
+  <div id="app" role="main">
+    <!-- Screens are injected here by app.js -->
+
+    <!-- Loading screen (shown before JS hydrates) -->
+    <div id="splash-screen" style="
+      position:fixed;inset:0;
+      background:#0D0D0D;
+      display:flex;flex-direction:column;align-items:center;justify-content:center;
+      z-index:9999;transition:opacity 500ms ease">
+      <div style="font-family:'Playfair Display',Georgia,serif;font-size:36px;font-weight:700;
+        color:#FFD700;letter-spacing:2px;margin-bottom:8px">SPOLIA</div>
+      <div
+        style="font-family:Inter,sans-serif;font-size:12px;color:#5C5647;letter-spacing:0.15em;text-transform:uppercase">
+        The Second Life of Design
+      </div>
+      <div style="margin-top:40px;display:flex;gap:6px">
+        <div
+          style="width:6px;height:6px;border-radius:50%;background:#FFD700;animation:dot-bounce 1.2s ease-in-out infinite">
+        </div>
+        <div
+          style="width:6px;height:6px;border-radius:50%;background:#FFD700;animation:dot-bounce 1.2s ease-in-out 0.2s infinite">
+        </div>
+        <div
+          style="width:6px;height:6px;border-radius:50%;background:#FFD700;animation:dot-bounce 1.2s ease-in-out 0.4s infinite">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bottom Navigation (injected by app.js) -->
+  <nav id="bottom-nav" class="bottom-nav" role="navigation" aria-label="Main navigation">
+    <!-- populated by buildNav() in app.js -->
+  </nav>
+
+  <!-- Toast Notification Container -->
+  <div id="toast-container" class="toast-container" role="status" aria-live="polite" aria-atomic="false"></div>
+
+  <!-- PWA Install Banner (hidden by default) -->
+  <div id="install-banner" hidden style="position:fixed;bottom:calc(var(--nav-height) + 8px);left:50%;transform:translateX(-50%);
+    width:calc(100% - 32px);max-width:440px;
+    background:var(--color-bg-elevated);border:1px solid var(--color-gold);border-radius:var(--radius-card);
+    padding:12px 16px;display:flex;align-items:center;gap:12px;z-index:500;
+    box-shadow:0 4px 24px rgba(0,0,0,0.4)">
+    <div style="flex:1">
+      <div style="font:var(--text-body);color:var(--color-text-primary);font-weight:600">Install Spolia</div>
+      <div style="font:var(--text-caption);color:var(--color-text-secondary)">Add to home screen for the best experience
+      </div>
+    </div>
+    <button id="install-btn" onclick="triggerInstall()" style="background:var(--color-gold);color:#0D0D0D;border:none;border-radius:var(--radius-button);
+      padding:8px 16px;font:600 13px var(--font-body);cursor:pointer">
+      Install
+    </button>
+    <button onclick="this.closest('#install-banner').style.display='none'"
+      style="background:none;border:none;color:var(--color-text-muted);font-size:18px;cursor:pointer;padding:4px;line-height:1"
+      aria-label="Dismiss">✕</button>
+  </div>
+
+  <!-- Inline splash animation keyframes -->
+  <style>
+    @keyframes dot-bounce {
+
+      0%,
+      80%,
+      100% {
+        transform: translateY(0);
+        opacity: 0.4;
+      }
+
+      40% {
+        transform: translateY(-8px);
+        opacity: 1;
+      }
+    }
+  </style>
+
+  <!-- Main Application -->
+  <script type="module">
+    // Import and initialize the app
+    import('./app.js').then(({ default: _ }) => {
+      // Hide splash after screens render
+      const splash = document.getElementById('splash-screen');
+      if (splash) {
+        setTimeout(() => {
+          splash.style.opacity = '0';
+          setTimeout(() => splash.remove(), 500);
+        }, 800);
+      }
+    }).catch(err => {
+      console.error('[Spolia] Failed to load app:', err);
+      const splash = document.getElementById('splash-screen');
+      if (splash) splash.innerHTML = `
+        <div style="text-align:center;padding:32px">
+          <div style="font-size:48px;margin-bottom:16px">⚠️</div>
+          <div style="color:#F5F0E8;font-family:Inter,sans-serif;margin-bottom:8px">Failed to load Spolia</div>
+          <div style="color:#5C5647;font-size:13px;margin-bottom:24px">${err.message}</div>
+          <button onclick="location.reload()" style="background:#FFD700;color:#0D0D0D;border:none;padding:10px 24px;border-radius:12px;font:600 14px Inter;cursor:pointer">
+            Retry
+          </button>
+        </div>`;
+    });
+  </script>
+
+  <!-- Noscript fallback -->
+  <noscript>
+    <div
+      style="position:fixed;inset:0;background:#0D0D0D;display:flex;align-items:center;justify-content:center;text-align:center;padding:32px;font-family:Inter,sans-serif">
+      <div>
+        <div style="font-size:36px;font-family:'Playfair Display',Georgia;color:#FFD700;margin-bottom:16px">SPOLIA</div>
+        <p style="color:#A09882;font-size:14px">Spolia requires JavaScript to run. Please enable JavaScript in your
+          browser settings.</p>
+      </div>
+    </div>
+  </noscript>
+
+</body>
+
+</html>
