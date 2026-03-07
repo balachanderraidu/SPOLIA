@@ -2,20 +2,21 @@
 // app.js  —  Spolia SPA Router & Application Core
 // ──────────────────────────────────────────────────────────────────
 
-// ── Demo Mode: time-limited (12 hours), persists only in normal browser sessions
-// In incognito, localStorage is wiped on close, so the timer resets each visit.
-const DEMO_TTL_MS = 12 * 60 * 60 * 1000; // 12 hours
+// ── Demo Mode: opt-in via ?demo=true URL param (session-scoped)
+// Normal visitors always get real Firebase auth.
+// Share /?demo=true to let someone preview without signing in.
 function isDemoMode() {
     try {
-        const ts = localStorage.getItem('spolia_demo_start');
-        if (!ts) {
-            // First visit — start the TTL clock
-            localStorage.setItem('spolia_demo_start', Date.now().toString());
+        const params = new URLSearchParams(window.location.search);
+        if (params.has('demo')) {
+            sessionStorage.setItem('spolia_demo', '1');
+            // Clean the param from the URL without a reload
+            const clean = window.location.pathname;
+            history.replaceState(null, '', clean);
             return true;
         }
-        return (Date.now() - parseInt(ts, 10)) < DEMO_TTL_MS;
+        return sessionStorage.getItem('spolia_demo') === '1';
     } catch {
-        // localStorage unavailable (e.g., blocked) → fall back to live auth
         return false;
     }
 }
