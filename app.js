@@ -240,6 +240,13 @@ async function init() {
 
     document.title = 'Welcome to Spolia';
 
+    // Hide nav immediately — we always start on login (a hideNav route).
+    // navigate() only sets nav visibility when called, but the first call to
+    // navigate('login') is skipped because currentRoute === 'login' already.
+    // Reset currentRoute so the auth listener's navigate() calls go through.
+    document.getElementById('bottom-nav').style.display = 'none';
+    App.currentRoute = null;
+
     // ── Auth State Listener ──────────────────────────────────────
     if (DEMO_MODE) {
         // Skip Firebase Auth — load mock user and go straight to Radar
