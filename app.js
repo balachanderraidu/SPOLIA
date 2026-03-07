@@ -2,8 +2,24 @@
 // app.js  —  Spolia SPA Router & Application Core
 // ──────────────────────────────────────────────────────────────────
 
-// 🔧 Toggle this to skip Firebase Auth during development
-const DEMO_MODE = true;
+// ── Demo Mode: time-limited (12 hours), persists only in normal browser sessions
+// In incognito, localStorage is wiped on close, so the timer resets each visit.
+const DEMO_TTL_MS = 12 * 60 * 60 * 1000; // 12 hours
+function isDemoMode() {
+    try {
+        const ts = localStorage.getItem('spolia_demo_start');
+        if (!ts) {
+            // First visit — start the TTL clock
+            localStorage.setItem('spolia_demo_start', Date.now().toString());
+            return true;
+        }
+        return (Date.now() - parseInt(ts, 10)) < DEMO_TTL_MS;
+    } catch {
+        // localStorage unavailable (e.g., blocked) → fall back to live auth
+        return false;
+    }
+}
+const DEMO_MODE = isDemoMode();
 
 import { FirebaseAuth, FirebaseDB, MOCK_USER_PROFILE } from './firebase-config.js';
 import { RadarScreen } from './components/radar.js';
@@ -123,17 +139,30 @@ let deferredInstallPrompt = null;
 window.addEventListener('beforeinstallprompt', (e) => {
     e.preventDefault();
     deferredInstallPrompt = e;
-    document.getElementById('install-btn')?.removeAttribute('hidden');
+    // Show the whole banner (not just the inner button)
+    const banner = document.getElementById('install-banner');
+    if (banner) banner.removeAttribute('hidden');
+});
+
+// Hide banner once app is installed
+window.addEventListener('appinstalled', () => {
+    const banner = document.getElementById('install-banner');
+    if (banner) banner.setAttribute('hidden', '');
+    deferredInstallPrompt = null;
+    console.log('[PWA] App installed successfully.');
 });
 
 export function triggerInstall() {
     if (!deferredInstallPrompt) return;
     deferredInstallPrompt.prompt();
-    deferredInstallPrompt.userChoice.then(() => {
+    deferredInstallPrompt.userChoice.then((choice) => {
+        console.log('[PWA] User choice:', choice.outcome);
         deferredInstallPrompt = null;
-        document.getElementById('install-btn')?.setAttribute('hidden', '');
+        const banner = document.getElementById('install-banner');
+        if (banner) banner.setAttribute('hidden', '');
     });
 }
+window.triggerInstall = triggerInstall;
 
 // ── Service Worker Registration ────────────────────────────────────
 async function registerServiceWorker() {
