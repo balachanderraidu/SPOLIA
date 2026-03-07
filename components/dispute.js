@@ -6,18 +6,25 @@ export class DisputeScreen {
         this.el = el;
         this.photos = [];
         this.selectedResolution = 'refund-full';
+        // Context passed via onActivate
+        this.listingId = null;
+        this.listingTitle = null;
+        this.bondId = null;
     }
 
     render() {
         this.el.innerHTML = `
       <header class="page-header">
         <div style="display:flex;align-items:center;gap:12px">
-          <button onclick="window.navigate('radar')" class="icon-btn" aria-label="Back">
+          <button id="back-btn" class="icon-btn" aria-label="Back">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M19 12H5M12 5l-7 7 7 7"/>
             </svg>
           </button>
-          <h1 class="page-header__title">Report Issue</h1>
+          <div>
+            <h1 class="page-header__title">Report Issue</h1>
+            ${this.listingTitle ? `<p class="page-header__subtitle" style="margin:0">${this.listingTitle}</p>` : ''}
+          </div>
         </div>
       </header>
 
@@ -73,7 +80,7 @@ export class DisputeScreen {
         <!-- Bond ID (read-only) -->
         <div class="form-field">
           <label class="form-label" for="bond-id">Bond ID</label>
-          <input class="form-input" id="bond-id" type="text" value="BOND-2847" readonly
+          <input class="form-input" id="bond-id" type="text" value="${this.bondId || 'BOND-XXXX'}" readonly
             style="background:var(--color-bg-base);color:var(--color-gold);font-weight:600">
         </div>
 
@@ -83,9 +90,9 @@ export class DisputeScreen {
           <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--color-border);border:1px solid var(--color-border);border-radius:var(--radius-button);overflow:hidden;margin-top:4px"
             role="radiogroup" aria-label="Choose resolution type">
             ${[
-                { id: 'refund-full', label: 'Full Refund' },
+                { id: 'refund-full',    label: 'Full Refund' },
                 { id: 'refund-partial', label: 'Partial Refund' },
-                { id: 'replacement', label: 'Replacement' }
+                { id: 'replacement',   label: 'Replacement' }
             ].map(opt => `
               <button class="resolution-opt ${opt.id === this.selectedResolution ? 'active' : ''}"
                 data-res="${opt.id}" role="radio" aria-checked="${opt.id === this.selectedResolution}"
@@ -114,6 +121,15 @@ export class DisputeScreen {
     }
 
     _bindEvents() {
+        // Back button — return to listing detail if we have context, else radar
+        this.el.querySelector('#back-btn')?.addEventListener('click', () => {
+            if (this.listingId) {
+                window.navigate?.('material-detail', { listingId: this.listingId });
+            } else {
+                window.navigate?.('radar');
+            }
+        });
+
         // Character count
         const textarea = this.el.querySelector('#issue-desc');
         const counter = this.el.querySelector('#desc-count');
@@ -211,7 +227,9 @@ export class DisputeScreen {
 
         try {
             await FirebaseDB.submitDispute({
-                bondId: 'BOND-2847',
+                listingId: this.listingId || null,
+                listingTitle: this.listingTitle || null,
+                bondId: this.bondId || this.el.querySelector('#bond-id')?.value || null,
                 issueType,
                 description: desc,
                 resolution: this.selectedResolution,
@@ -219,7 +237,14 @@ export class DisputeScreen {
                 timestamp: new Date().toISOString()
             });
             window.showToast?.('Dispute submitted. A mediator will review within 48 hours.', 'success');
-            setTimeout(() => window.navigate?.('radar'), 2000);
+            setTimeout(() => {
+                // Return to the listing if we have context, else radar
+                if (this.listingId) {
+                    window.navigate?.('material-detail', { listingId: this.listingId });
+                } else {
+                    window.navigate?.('radar');
+                }
+            }, 2000);
         } catch (err) {
             window.showToast?.('Failed to submit. Please try again.', 'error');
             if (submitBtn) {
@@ -230,9 +255,12 @@ export class DisputeScreen {
     }
 
     onActivate(params = {}) {
-        if (params.bondId) {
-            const bondInput = this.el.querySelector('#bond-id');
-            if (bondInput) bondInput.value = params.bondId;
-        }
+        // Store context for this dispute flow
+        if (params.bondId)        this.bondId = params.bondId;
+        if (params.listingId)     this.listingId = params.listingId;
+        if (params.listingTitle)  this.listingTitle = params.listingTitle;
+
+        // Re-render to show updated context (title in header, bond ID in field)
+        this.render();
     }
 }

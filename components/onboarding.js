@@ -1,12 +1,11 @@
 // components/onboarding.js — Verification Onboarding Wizard
-// Design from Stitch: SPOLIA Verification Step 1
-import { FirebaseAuth, FirebaseStorage } from '../firebase-config.js';
+import { FirebaseAuth, FirebaseDB, FirebaseStorage } from '../firebase-config.js';
 
 const ROLES = [
-    { id: 'architect', icon: '🏛', label: 'Architect', sub: 'COA Registration', credential: 'COA Number' },
-    { id: 'designer', icon: '🎨', label: 'Interior Designer', sub: 'Professional portfolio', credential: 'Portfolio URL / Membership' },
-    { id: 'contractor', icon: '🏗', label: 'Contractor', sub: 'Trade license / GSTIN', credential: 'GSTIN Number' },
-    { id: 'vendor', icon: '🏪', label: 'Material Vendor', sub: 'Business registration', credential: 'Business Reg. Number' }
+    { id: 'architect',  icon: '🏛', label: 'Architect',         sub: 'COA Registration',          credential: 'COA Number' },
+    { id: 'designer',   icon: '🎨', label: 'Interior Designer', sub: 'Professional portfolio',     credential: 'Portfolio URL / Membership' },
+    { id: 'contractor', icon: '🏗', label: 'Contractor',        sub: 'Trade license / GSTIN',      credential: 'GSTIN Number' },
+    { id: 'vendor',     icon: '🏪', label: 'Material Vendor',   sub: 'Business registration',      credential: 'Business Reg. Number' }
 ];
 
 export class OnboardingScreen {
@@ -16,6 +15,7 @@ export class OnboardingScreen {
         this.selectedRole = null;
         this.credentialNumber = '';
         this.docFile = null;
+        this.submitting = false;
     }
 
     render() {
@@ -124,6 +124,7 @@ export class OnboardingScreen {
     }
 
     _step3() {
+        const role = ROLES.find(r => r.id === this.selectedRole);
         return `
       <div style="min-height:100%;background:var(--color-bg-base);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 24px;text-align:center">
         <div style="font-size:64px;margin-bottom:24px">⏳</div>
@@ -140,16 +141,18 @@ export class OnboardingScreen {
           <div style="font:var(--text-label);color:var(--color-text-muted);letter-spacing:0.08em;margin-bottom:12px">YOUR APPLICATION</div>
           <div style="display:flex;justify-content:space-between;margin-bottom:8px">
             <span style="font:var(--text-caption);color:var(--color-text-secondary)">Role</span>
-            <span style="font:var(--text-caption);color:var(--color-text-primary);font-weight:600">
-              ${ROLES.find(r => r.id === this.selectedRole)?.label}
-            </span>
+            <span style="font:var(--text-caption);color:var(--color-text-primary);font-weight:600">${role?.label || '—'}</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;margin-bottom:8px">
+            <span style="font:var(--text-caption);color:var(--color-text-secondary)">Credential</span>
+            <span style="font:var(--text-caption);color:var(--color-text-primary);font-weight:600">${this.credentialNumber || '—'}</span>
           </div>
           <div style="display:flex;justify-content:space-between">
             <span style="font:var(--text-caption);color:var(--color-text-secondary)">Status</span>
             <span style="font:var(--text-caption);color:var(--color-amber);font-weight:600">⏳ Under Review</span>
           </div>
         </div>
-        <button class="btn btn--outline" onclick="window.navigate('radar')" style="max-width:360px">
+        <button class="btn btn--outline" id="explore-btn" style="max-width:360px">
           Explore in Demo Mode
         </button>
       </div>`;
@@ -190,21 +193,89 @@ export class OnboardingScreen {
         // Credential input (step 2)
         const credInput = this.el.querySelector('#cred-input');
         credInput?.addEventListener('input', () => { this.credentialNumber = credInput.value; });
+
+        // Explore button (step 3)
+        this.el.querySelector('#explore-btn')?.addEventListener('click', () => {
+            window.navigate?.('radar');
+        });
     }
 
     async _handleContinue() {
         if (this.step === 1 && !this.selectedRole) return;
-        if (this.step < 3) {
-            this.step++;
+
+        if (this.step === 2) {
+            // Validate credential number
+            const credInput = this.el.querySelector('#cred-input');
+            const cred = credInput?.value?.trim();
+            if (!cred) {
+                window.showToast?.('Please enter your credential number.', 'error');
+                return;
+            }
+            this.credentialNumber = cred;
+
+            // Start submit to Firebase
+            await this._submitToFirebase();
+            return;
+        }
+
+        // Step 1 → 2
+        this.step++;
+        this.el.innerHTML = this._renderStep();
+        this._bindEvents();
+    }
+
+    async _submitToFirebase() {
+        if (this.submitting) return;
+        this.submitting = true;
+
+        const btn = this.el.querySelector('#continue-btn');
+        if (btn) { btn.textContent = 'Submitting...'; btn.disabled = true; }
+
+        try {
+            const user = FirebaseAuth.getCurrentUser();
+            let docUrl = null;
+
+            // Upload credential doc if provided
+            if (this.docFile && user) {
+                try {
+                    docUrl = await FirebaseStorage.uploadCOADocument(this.docFile, user.uid);
+                } catch (e) {
+                    console.warn('[Onboarding] Doc upload failed:', e);
+                    // Non-blocking — continue without doc URL
+                }
+            }
+
+            // Write to Firestore
+            if (user) {
+                await FirebaseDB.submitVerificationApplication(user.uid, {
+                    role: this.selectedRole,
+                    credentialNumber: this.credentialNumber,
+                    docUrl
+                });
+            }
+
+            window.showToast?.('Application submitted! We\'ll review within 24 hours. ✦', 'success');
+
+            // Advance to confirmation step
+            this.step = 3;
             this.el.innerHTML = this._renderStep();
             this._bindEvents();
 
-            // Step 3: submit application
-            if (this.step === 3) {
-                window.showToast?.('Application submitted! We\'ll review within 24 hours.', 'success');
-            }
+        } catch (err) {
+            console.error('[Onboarding] Submit failed:', err);
+            window.showToast?.('Submission failed. Please try again.', 'error');
+            if (btn) { btn.textContent = 'Continue →'; btn.disabled = false; }
+        } finally {
+            this.submitting = false;
         }
     }
 
-    onActivate() { }
+    onActivate() {
+        // Reset to step 1 each time the screen is opened fresh
+        const user = FirebaseAuth.getCurrentUser?.();
+        if (user && this.step === 3) {
+            // Already submitted in this session — go straight to radar
+            window.navigate?.('radar');
+        }
+    }
 }

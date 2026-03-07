@@ -92,7 +92,6 @@ export class ScannerScreen {
             console.warn('[Scanner] Camera access denied:', err);
             const hint = this.el.querySelector('#scanner-hint-text');
             if (hint) hint.textContent = 'Camera access required. Enable in browser settings.';
-            // Use demo mode with a still frame
             this._demoMode();
         }
     }
@@ -136,6 +135,10 @@ export class ScannerScreen {
 
             const result = await scanMaterial(base64);
             this.scanResult = result;
+
+            // FIX: store scan result globally so listing-create can receive it
+            window._lastScanResult = result;
+
             this._showResult(result);
 
         } catch (err) {
@@ -184,7 +187,7 @@ export class ScannerScreen {
       <p style="font:var(--text-caption);color:var(--color-text-secondary);line-height:1.6;margin-bottom:20px">${result.description}</p>
 
       <div style="display:flex;flex-direction:column;gap:8px">
-        <button class="btn btn--gold" id="list-btn" onclick="window._lastScanResult=window._lastScanResult||{};window.navigate('listing-create',{scanResult:window._lastScanResult})">
+        <button class="btn btn--gold" id="list-btn">
           ✦ Edit &amp; List This
         </button>
         <button class="btn btn--outline" id="rescan-btn">
@@ -195,6 +198,11 @@ export class ScannerScreen {
 
         sheet.setAttribute('aria-hidden', 'false');
         sheet.classList.add('visible');
+
+        // Wire "List This" button properly with the scan result
+        this.el.querySelector('#list-btn')?.addEventListener('click', () => {
+            window.navigate?.('listing-create', { scanResult: result });
+        });
 
         this.el.querySelector('#rescan-btn')?.addEventListener('click', () => {
             sheet.classList.remove('visible');
