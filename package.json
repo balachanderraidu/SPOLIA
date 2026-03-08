@@ -5,5 +5,9 @@
   "engines": {
     "node": ">=20"
   },
+  "scripts": {
+    "dev": "npx serve . --listen 3000 --cors",
+    "demo": "npx serve . --listen 3000 --cors --open"
+  },
   "private": true
 }

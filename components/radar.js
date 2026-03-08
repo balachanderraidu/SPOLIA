@@ -84,8 +84,14 @@ export class RadarScreen {
   _loadListings(filter) {
     if (this.unsubscribe) this.unsubscribe();
     const feed = this.el.querySelector('#radar-feed');
-    feed.innerHTML = this._skeletons();
 
+    // Show mock listings immediately so the screen never shows empty skeletons
+    const mockFiltered = filter === 'all'
+      ? MOCK_LISTINGS
+      : MOCK_LISTINGS.filter(l => l.type === filter || l.category === filter);
+    this._renderListings(mockFiltered);
+
+    // Firebase will override with live data when it arrives (or fall back to mock on error)
     this.unsubscribe = FirebaseDB.listenToRadar(filter, (listings) => {
       const filtered = filter === 'all'
         ? listings
