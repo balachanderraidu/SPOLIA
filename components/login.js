@@ -139,6 +139,21 @@ export class LoginScreen {
             </svg>
           </button>
 
+          <!-- Demo Mode CTA -->
+          <button id="demo-btn" style="
+            width:100%;height:48px;border-radius:12px;margin-top:12px;
+            background:rgba(255,215,0,0.08);
+            border:1px solid rgba(255,215,0,0.25);cursor:pointer;
+            display:flex;align-items:center;justify-content:center;gap:10px;
+            font:500 14px/1 Inter,sans-serif;color:#FFD700;
+            transition:background 120ms,border-color 120ms
+          " aria-label="Explore demo">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#FFD700" stroke-width="2">
+              <polygon points="5 3 19 12 5 21 5 3"/>
+            </svg>
+            Explore in Demo Mode
+          </button>
+
           <div style="flex:1;min-height:24px"></div>
 
           <!-- Footer -->
@@ -156,11 +171,25 @@ export class LoginScreen {
     _bindEvents() {
         const btn = this.el.querySelector('#google-signin-btn');
         const applyBtn = this.el.querySelector('#apply-btn');
+        const demoBtn = this.el.querySelector('#demo-btn');
 
         btn?.addEventListener('click', () => this._signIn());
 
         applyBtn?.addEventListener('click', () => {
             window.navigate?.('onboarding');
+        });
+
+        demoBtn?.addEventListener('click', () => {
+            window.location.href = '/?demo=true';
+        });
+
+        demoBtn?.addEventListener('mouseenter', () => {
+            demoBtn.style.background = 'rgba(255,215,0,0.14)';
+            demoBtn.style.borderColor = 'rgba(255,215,0,0.5)';
+        });
+        demoBtn?.addEventListener('mouseleave', () => {
+            demoBtn.style.background = 'rgba(255,215,0,0.08)';
+            demoBtn.style.borderColor = 'rgba(255,215,0,0.25)';
         });
 
         // Hover effect
