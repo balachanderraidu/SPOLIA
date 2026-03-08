@@ -29,8 +29,7 @@ import { ProfileScreen } from './components/profile.js';
 import { MaterialDetailScreen } from './components/material-detail.js';
 import { DisputeScreen } from './components/dispute.js';
 import { LogisticsScreen } from './components/logistics.js';
-import { LoginScreen } from './components/login.js';
-import { OnboardingScreen } from './components/onboarding.js';
+
 import { ListingCreateScreen } from './components/listing-create.js';
 
 
@@ -45,23 +44,16 @@ const App = {
     screenInstances: {},
 
     routes: {
-        // Auth screens kept but never auto-navigated to
-        login:      { title: 'Welcome to Spolia', component: LoginScreen,      public: true, hideNav: true },
-        onboarding: { title: 'Verification',      component: OnboardingScreen, public: true, hideNav: true },
-
-        // Main app screens (all public — no auth wall)
-        radar:   { title: 'The Radar',    component: RadarScreen,   public: true },
-        scanner: { title: 'AI Scanner',   component: ScannerScreen, public: true },
-        impact:  { title: 'Impact',       component: ImpactScreen,  public: true },
-        vendors: { title: 'Vendors',      component: VendorsScreen, public: true },
-        tools:   { title: 'Site Tools',   component: ToolsScreen,   public: true },
-        profile: { title: 'Profile',      component: ProfileScreen, public: true },
-
-        // Detail / action screens (no nav tab)
-        'material-detail': { title: 'Listing Detail', component: MaterialDetailScreen, public: true },
-        dispute:           { title: 'Report Issue',   component: DisputeScreen,        public: true },
-        logistics:         { title: 'Pickup Route',   component: LogisticsScreen,      public: true },
-        'listing-create':  { title: 'Create Listing', component: ListingCreateScreen,  public: true }
+        radar:             { title: 'The Radar',      component: RadarScreen },
+        scanner:           { title: 'AI Scanner',     component: ScannerScreen },
+        impact:            { title: 'Impact',          component: ImpactScreen },
+        vendors:           { title: 'Vendors',         component: VendorsScreen },
+        tools:             { title: 'Site Tools',      component: ToolsScreen },
+        profile:           { title: 'Profile',         component: ProfileScreen },
+        'material-detail': { title: 'Listing Detail',  component: MaterialDetailScreen },
+        dispute:           { title: 'Report Issue',    component: DisputeScreen },
+        logistics:         { title: 'Pickup Route',    component: LogisticsScreen },
+        'listing-create':  { title: 'Create Listing',  component: ListingCreateScreen }
     }
 };
 
@@ -201,40 +193,6 @@ function buildNav() {
         const item = e.target.closest('[data-route]');
         if (item) navigate(item.dataset.route);
     });
-}
-
-// ── After sign-in: check onboarding status ────────────────────────
-async function handleAuthenticatedUser(user) {
-    App.currentUser = user;
-    App.isAuthenticated = true;
-
-    // Upsert the Firestore user doc (non-destructive)
-    await FirebaseDB.upsertUserProfile(user.uid, {
-        displayName: user.displayName || '',
-        email: user.email || '',
-        photoURL: user.photoURL || null
-    });
-
-    // Fetch the profile to check onboarding status
-    const profile = await FirebaseDB.getUserProfile(user.uid);
-    App.currentUserProfile = profile;
-
-    const currentRouteConfig = App.routes[App.currentRoute];
-    if (App.currentRoute && !currentRouteConfig?.public) return; // already on a protected route
-
-    // FIX: wrap the compound condition in parentheses to avoid && > || precedence bug
-    if (!profile || (profile.onboardingComplete === false && !profile.role)) {
-        // Brand-new account — never submitted verification yet
-        navigate('onboarding');
-    } else if (profile.verificationStatus === 'pending') {
-        // Already applied but pending review — go to radar with toast
-        navigate('radar');
-        showToast(`Welcome back, ${user.displayName?.split(' ')[0] || 'back'}! ✦ Verification under review.`, 'info', 5000);
-    } else {
-        // Verified or returning user
-        navigate('radar');
-        showToast(`Welcome back, ${user.displayName?.split(' ')[0] || 'back'}! ✦`, 'success', 3000);
-    }
 }
 
 // ── Initialize App ────────────────────────────────────────────────

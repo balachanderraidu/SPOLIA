@@ -5,9 +5,9 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
 import { getAnalytics } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-analytics.js";
 import {
-    getAuth, GoogleAuthProvider, PhoneAuthProvider, RecaptchaVerifier,
-    signInWithPopup, signInWithRedirect, getRedirectResult, signInWithPhoneNumber,
-    linkWithCredential, signOut as firebaseSignOut, onAuthStateChanged as firebaseOnAuthStateChanged
+    getAuth, GoogleAuthProvider,
+    signInWithPopup, signInWithRedirect, getRedirectResult,
+    signOut as firebaseSignOut, onAuthStateChanged as firebaseOnAuthStateChanged
 } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
 import {
     getFirestore, collection, query, where, orderBy,
@@ -52,52 +52,6 @@ const FirebaseAuth = {
             }
             throw popupErr;
         }
-    },
-
-    /** Set up invisible reCAPTCHA and start phone sign-in.
-     *  Requires a <div id="recaptcha-container"></div> somewhere in the page DOM.
-     *  The element can be hidden — Firebase only uses it as a render anchor. */
-    sendOTP: async (phoneNumber) => {
-        // Clear any previous verifier to avoid "reCAPTCHA has already been rendered" errors
-        if (window._recaptchaVerifier) {
-            try { window._recaptchaVerifier.clear(); } catch (_) {}
-            window._recaptchaVerifier = null;
-        }
-        // Use a stable string container ID — more reliable than passing a live DOM element
-        const verifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
-            size: 'invisible',
-            callback: () => { /* OTP sent successfully */ },
-            'expired-callback': () => {
-                if (window._recaptchaVerifier) {
-                    try { window._recaptchaVerifier.clear(); } catch (_) {}
-                    window._recaptchaVerifier = null;
-                }
-            }
-        });
-        window._recaptchaVerifier = verifier;
-        // Explicitly render before calling signInWithPhoneNumber
-        await verifier.render();
-        const result = await signInWithPhoneNumber(auth, phoneNumber, verifier);
-        window._confirmationResult = result;
-        return result;
-    },
-
-    /** Verify the OTP code the user typed */
-    confirmOTP: async (code) => {
-        if (!window._confirmationResult) throw new Error('No pending OTP');
-        return window._confirmationResult.confirm(code);
-    },
-
-    /** Link phone credential to already signed-in Google account */
-    linkPhone: async (code) => {
-        if (!window._confirmationResult) throw new Error('No pending OTP');
-        // credentialFromResult() is for UserCredentials (e.g. signInWithPopup), NOT ConfirmationResults.
-        // Use PhoneAuthProvider.credential(verificationId, code) to correctly build the credential.
-        const credential = PhoneAuthProvider.credential(
-            window._confirmationResult.verificationId,
-            code
-        );
-        return linkWithCredential(auth.currentUser, credential);
     },
 
     getRedirectResult: async () => getRedirectResult(auth),
