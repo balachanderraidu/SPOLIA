@@ -5,8 +5,9 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
 import { getAnalytics } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-analytics.js";
 import {
-    getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult,
-    signOut as firebaseSignOut, onAuthStateChanged as firebaseOnAuthStateChanged
+    getAuth, GoogleAuthProvider, PhoneAuthProvider, RecaptchaVerifier,
+    signInWithPopup, signInWithRedirect, getRedirectResult, signInWithPhoneNumber,
+    linkWithCredential, signOut as firebaseSignOut, onAuthStateChanged as firebaseOnAuthStateChanged
 } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
 import {
     getFirestore, collection, query, where, orderBy,
@@ -41,35 +42,53 @@ const FirebaseAuth = {
     signInWithGoogle: async () => {
         const provider = new GoogleAuthProvider();
         provider.setCustomParameters({ prompt: 'select_account' });
-        // Use popup on desktop; fall back to redirect on mobile if popup is blocked
         try {
             return await signInWithPopup(auth, provider);
         } catch (popupErr) {
             if (popupErr.code === 'auth/popup-blocked' ||
                 popupErr.code === 'auth/cancelled-popup-request' ||
                 popupErr.code === 'auth/popup-closed-by-user') {
-                // Popup blocked (common on mobile) — fall back to redirect
                 return signInWithRedirect(auth, provider);
             }
             throw popupErr;
         }
     },
 
-    getRedirectResult: async () => {
-        return getRedirectResult(auth);
+    /** Set up invisible reCAPTCHA on a button element and start phone sign-in */
+    sendOTP: async (phoneNumber, buttonEl) => {
+        // Clear any previous verifier
+        if (window._recaptchaVerifier) {
+            try { window._recaptchaVerifier.clear(); } catch (_) {}
+        }
+        const verifier = new RecaptchaVerifier(auth, buttonEl, { size: 'invisible' });
+        window._recaptchaVerifier = verifier;
+        const result = await signInWithPhoneNumber(auth, phoneNumber, verifier);
+        window._confirmationResult = result;
+        return result;
     },
 
-    signOut: async () => {
-        return firebaseSignOut(auth);
+    /** Verify the OTP code the user typed */
+    confirmOTP: async (code) => {
+        if (!window._confirmationResult) throw new Error('No pending OTP');
+        return window._confirmationResult.confirm(code);
     },
 
-    getCurrentUser: () => {
-        return auth.currentUser;
+    /** Link phone credential to already signed-in Google account */
+    linkPhone: async (code) => {
+        if (!window._confirmationResult) throw new Error('No pending OTP');
+        const credential = PhoneAuthProvider.credentialFromResult(
+            await window._confirmationResult.confirm(code)
+        );
+        return linkWithCredential(auth.currentUser, credential);
     },
 
-    onAuthStateChanged: (callback) => {
-        return firebaseOnAuthStateChanged(auth, callback);
-    }
+    getRedirectResult: async () => getRedirectResult(auth),
+
+    signOut: async () => firebaseSignOut(auth),
+
+    getCurrentUser: () => auth.currentUser,
+
+    onAuthStateChanged: (callback) => firebaseOnAuthStateChanged(auth, callback)
 };
 
 // ──────────────────────────────────────────────────────────────────
