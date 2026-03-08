@@ -91,8 +91,11 @@ const FirebaseAuth = {
     /** Link phone credential to already signed-in Google account */
     linkPhone: async (code) => {
         if (!window._confirmationResult) throw new Error('No pending OTP');
-        const credential = PhoneAuthProvider.credentialFromResult(
-            await window._confirmationResult.confirm(code)
+        // credentialFromResult() is for UserCredentials (e.g. signInWithPopup), NOT ConfirmationResults.
+        // Use PhoneAuthProvider.credential(verificationId, code) to correctly build the credential.
+        const credential = PhoneAuthProvider.credential(
+            window._confirmationResult.verificationId,
+            code
         );
         return linkWithCredential(auth.currentUser, credential);
     },
