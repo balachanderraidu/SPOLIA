@@ -5,7 +5,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
 import { getAnalytics } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-analytics.js";
 import {
-    getAuth, GoogleAuthProvider, signInWithPopup,
+    getAuth, GoogleAuthProvider, signInWithRedirect, getRedirectResult,
     signOut as firebaseSignOut, onAuthStateChanged as firebaseOnAuthStateChanged
 } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
 import {
@@ -40,7 +40,12 @@ const storage = getStorage(firebaseApp);
 const FirebaseAuth = {
     signInWithGoogle: async () => {
         const provider = new GoogleAuthProvider();
-        return signInWithPopup(auth, provider);
+        provider.setCustomParameters({ prompt: 'select_account' });
+        return signInWithRedirect(auth, provider);
+    },
+
+    getRedirectResult: async () => {
+        return getRedirectResult(auth);
     },
 
     signOut: async () => {

@@ -288,6 +288,16 @@ async function init() {
         demoBadge.textContent = 'Demo Mode';
         document.body.appendChild(demoBadge);
     } else {
+        // Handle result from signInWithRedirect (Google returns the user here after auth)
+        try {
+            const result = await FirebaseAuth.getRedirectResult();
+            if (result?.user) {
+                console.log('[Auth] Redirect sign-in successful:', result.user.displayName);
+            }
+        } catch (err) {
+            console.error('[Auth] Redirect result error:', err);
+        }
+
         FirebaseAuth.onAuthStateChanged(async (user) => {
             if (user) {
                 await handleAuthenticatedUser(user);

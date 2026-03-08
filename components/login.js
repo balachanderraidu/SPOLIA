@@ -209,12 +209,12 @@ export class LoginScreen {
         if (!btn || !textEl) return;
 
         btn.disabled = true;
-        textEl.textContent = 'Signing in...';
+        textEl.textContent = 'Redirecting to Google...';
         btn.style.background = '#B89A00';
 
         try {
+            // Redirect to Google — page will reload and app.js handles the result
             await FirebaseAuth.signInWithGoogle();
-            // Auth state change will trigger navigation in app.js
         } catch (err) {
             console.error('[Login] Sign-in failed:', err);
             window.showToast?.('Sign-in failed. Please try again.', 'error');
