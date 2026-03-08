@@ -1,70 +1,78 @@
 // ──────────────────────────────────────────────────────────────────
 // service-worker.js  —  Spolia PWA Service Worker
-// Implements: Cache-first strategy for static assets,
-//             Network-first for API calls
+// Strategy: Network-first for JS/HTML (code updates always fresh)
+//           Cache-first only for images/fonts (truly static)
 // ──────────────────────────────────────────────────────────────────
 
-const CACHE_NAME = "spolia-v5";
+const CACHE_NAME = "spolia-v6";
+
+// Only cache truly static binary assets — NOT JS or HTML
 const STATIC_ASSETS = [
-    "/",
-    "/index.html",
-    "/styles.css",
-    "/app.js",
-    "/manifest.json",
-    "/firebase-config.js",
-    "/components/radar.js",
-    "/components/scanner.js",
-    "/components/impact.js",
-    "/components/vendors.js",
-    "/components/tools.js",
-    "/components/profile.js",
-    "/components/material-detail.js",
-    "/components/logistics.js",
-    "/components/dispute.js"
+    "/assets/icons/icon-192.png",
+    "/assets/icons/icon-512.png",
+    "/manifest.json"
 ];
 
-
-// Install: Pre-cache static assets
+// Install: Pre-cache only icons/manifest
 self.addEventListener("install", (event) => {
     event.waitUntil(
         caches.open(CACHE_NAME).then((cache) => {
-            console.log("[SW] Pre-caching static assets");
-            return cache.addAll(STATIC_ASSETS);
+            console.log("[SW] Pre-caching static assets (icons only)");
+            return cache.addAll(STATIC_ASSETS).catch(() => {});
         })
     );
     self.skipWaiting();
 });
 
-// Activate: Clean old caches
+// Activate: Clean ALL old caches immediately
 self.addEventListener("activate", (event) => {
     event.waitUntil(
         caches.keys().then((keys) =>
-            Promise.all(
-                keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key))
-            )
-        )
+            Promise.all(keys.map((key) => caches.delete(key)))
+        ).then(() => {
+            console.log("[SW] All old caches cleared");
+        })
     );
     self.clients.claim();
 });
 
-// Fetch: Cache-first for static, network-first for API
+// Fetch strategy:
+//   JS, HTML, CSS → NETWORK ONLY (always fresh, never from cache)
+//   Firebase/APIs  → NETWORK ONLY (never cache)
+//   Images/icons   → Cache-first (unchanged binary assets)
 self.addEventListener("fetch", (event) => {
     const { request } = event;
     const url = new URL(request.url);
 
-    // Network-first for Firebase/API calls
+    // Never intercept external APIs
     if (
         url.hostname.includes("firebaseapp.com") ||
         url.hostname.includes("googleapis.com") ||
-        url.hostname.includes("firebase.google.com")
+        url.hostname.includes("firebase.google.com") ||
+        url.hostname.includes("gstatic.com") ||
+        url.hostname.includes("google.com")
+    ) {
+        event.respondWith(fetch(request));
+        return;
+    }
+
+    // JS and HTML files: ALWAYS fetch from network (code must be fresh)
+    if (
+        url.pathname.endsWith(".js") ||
+        url.pathname.endsWith(".html") ||
+        url.pathname === "/" ||
+        url.pathname.endsWith(".css")
     ) {
         event.respondWith(
-            fetch(request).catch(() => caches.match(request))
+            fetch(request).catch(() => {
+                // Offline fallback: try cache if network is unavailable
+                return caches.match(request);
+            })
         );
         return;
     }
 
-    // Cache-first for static assets
+    // Images and icons: Cache-first (truly static)
     event.respondWith(
         caches.match(request).then((cached) => {
             if (cached) return cached;
@@ -78,26 +86,6 @@ self.addEventListener("fetch", (event) => {
         })
     );
 });
-
-// Background sync for offline actions (bond submissions, dispute reports)
-self.addEventListener("sync", (event) => {
-    if (event.tag === "sync-bonds") {
-        event.waitUntil(syncPendingBonds());
-    }
-    if (event.tag === "sync-disputes") {
-        event.waitUntil(syncPendingDisputes());
-    }
-});
-
-async function syncPendingBonds() {
-    console.log("[SW] Syncing pending bond transactions...");
-    // TODO: Read from IndexedDB and push to Firestore
-}
-
-async function syncPendingDisputes() {
-    console.log("[SW] Syncing pending dispute reports...");
-    // TODO: Read from IndexedDB and push to Firestore
-}
 
 // Push notifications for bond status updates
 self.addEventListener("push", (event) => {
