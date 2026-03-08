@@ -53,3 +53,12 @@
   for = "/assets/*"
   [headers.values]
     Cache-Control = "public, max-age=86400"
+
+# ─────────────────────────────────────────────────────────────────────
+# SPA Redirect — serve index.html for all routes so the JS router
+# handles navigation. Without this, Netlify 404s on any direct URL.
+# ─────────────────────────────────────────────────────────────────────
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

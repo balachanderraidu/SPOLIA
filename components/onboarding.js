@@ -1,11 +1,11 @@
-// components/onboarding.js — Verification Onboarding Wizard
+// components/onboarding.js — Verification Wizard (Stitch-designed UI)
 import { FirebaseAuth, FirebaseDB, FirebaseStorage } from '../firebase-config.js';
 
 const ROLES = [
-    { id: 'architect',  icon: '🏛', label: 'Architect',         sub: 'COA Registration',          credential: 'COA Number' },
-    { id: 'designer',   icon: '🎨', label: 'Interior Designer', sub: 'Professional portfolio',     credential: 'Portfolio URL / Membership' },
-    { id: 'contractor', icon: '🏗', label: 'Contractor',        sub: 'Trade license / GSTIN',      credential: 'GSTIN Number' },
-    { id: 'vendor',     icon: '🏪', label: 'Material Vendor',   sub: 'Business registration',      credential: 'Business Reg. Number' }
+    { id: 'architect',  icon: '🏛️', label: 'Architect',         sub: 'COA Registration',         credential: 'COA Number',              placeholder: 'CA/2019/47821' },
+    { id: 'designer',   icon: '🎨', label: 'Interior Designer', sub: 'NCIDQ / Portfolio',         credential: 'Membership / Portfolio URL', placeholder: 'NCIDQ-12345 or URL' },
+    { id: 'contractor', icon: '🏗️', label: 'Contractor',        sub: 'Trade License / GSTIN',    credential: 'GSTIN Number',            placeholder: '27AABCU9603R1ZX' },
+    { id: 'vendor',     icon: '🏪', label: 'Material Vendor',   sub: 'Business Registration',    credential: 'Registration Number',     placeholder: 'MSME / Trade Reg No.' }
 ];
 
 export class OnboardingScreen {
@@ -19,263 +19,298 @@ export class OnboardingScreen {
     }
 
     render() {
-        this.el.innerHTML = this._renderStep();
+        this.el.innerHTML = `
+      <div style="min-height:100dvh;background:#0D0D0D;display:flex;flex-direction:column;overflow-y:auto">
+        ${this._renderCurrentStep()}
+      </div>`;
         this._bindEvents();
     }
 
-    _renderStep() {
-        if (this.step === 1) return this._step1();
-        if (this.step === 2) return this._step2();
-        return this._step3();
+    _renderCurrentStep() {
+        if (this.step === 1) return this._step1HTML();
+        if (this.step === 2) return this._step2HTML();
+        return this._step3HTML();
     }
 
-    _header(title) {
+    // ── Step 1: Role selection ──────────────────────────────────────
+    _step1HTML() {
+        const role = this.selectedRole;
         return `
-      <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 24px;padding-top:env(safe-area-inset-top,16px)">
-        <button id="back-btn" class="icon-btn" aria-label="Back">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M19 12H5M12 5l-7 7 7 7"/>
-          </svg>
+      <!-- Header -->
+      <div style="display:flex;align-items:center;padding:max(env(safe-area-inset-top),18px) 20px 0;gap:12px">
+        <button id="back-btn" aria-label="Back"
+          style="width:36px;height:36px;border-radius:50%;background:#1A1A1A;border:1px solid #2A2A2A;
+            display:flex;align-items:center;justify-content:center;cursor:pointer;color:#F5F0E8">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
         </button>
-        <span style="font:600 15px/1 Inter,sans-serif;color:var(--color-text-primary)">${title}</span>
-        <span style="font:400 12px/1 Inter,sans-serif;color:var(--color-text-muted)">${this.step} of 3</span>
+        <span style="flex:1;text-align:center;font:600 15px/1 Inter,sans-serif;color:#F5F0E8">Verification</span>
+        <span style="font:400 12px/1 Inter,sans-serif;color:#5C5647;width:36px;text-align:right">1 of 3</span>
       </div>
-      <!-- Progress bar -->
-      <div style="display:flex;gap:4px;padding:0 24px 24px">
-        ${[1, 2, 3].map(s => `
-          <div style="flex:1;height:3px;border-radius:2px;
-            background:${s <= this.step ? 'var(--color-gold)' : 'var(--color-border)'}"></div>
-        `).join('')}
-      </div>`;
-    }
 
-    _step1() {
-        return `
-      <div style="min-height:100%;background:var(--color-bg-base);display:flex;flex-direction:column">
-        ${this._header('Verification')}
-        <div style="padding:0 24px;flex:1">
-          <h1 style="font:700 28px/1.2 'Playfair Display',Georgia,serif;color:var(--color-gold);margin-bottom:8px">Who are you?</h1>
-          <p style="font:var(--text-body);color:var(--color-text-secondary);margin-bottom:28px;line-height:1.6">
-            Spolia is exclusive. Access requires professional verification.
-          </p>
-          <!-- Role grid -->
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:32px">
-            ${ROLES.map(r => `
-              <button class="role-card ${r.id === this.selectedRole ? 'selected' : ''}" data-role="${r.id}"
-                style="background:var(--color-bg-surface);
-                  border:1px solid ${r.id === this.selectedRole ? 'var(--color-gold)' : 'var(--color-border)'};
-                  border-radius:16px;padding:18px 12px;cursor:pointer;text-align:center;
-                  display:flex;flex-direction:column;align-items:center;gap:8px;
-                  transition:border-color 150ms,background 150ms;position:relative">
-                ${r.id === this.selectedRole ? `
-                  <span style="position:absolute;top:8px;right:8px;width:18px;height:18px;border-radius:50%;
-                    background:var(--color-gold);display:flex;align-items:center;justify-content:center;
-                    font-size:10px;color:#0D0D0D;font-weight:700">✓</span>` : ''}
-                <span style="font-size:28px">${r.icon}</span>
-                <span style="font:600 13px/1.2 Inter,sans-serif;color:var(--color-text-primary)">${r.label}</span>
-                <span style="font:400 10px/1.3 Inter,sans-serif;color:var(--color-text-muted)">${r.sub}</span>
-              </button>`).join('')}
-          </div>
-          <button id="continue-btn" class="btn btn--gold" ${!this.selectedRole ? 'disabled style="opacity:0.4"' : ''}>
-            Continue →
-          </button>
-          <p style="font:400 11px/1.5 Inter,sans-serif;color:var(--color-text-muted);text-align:center;margin-top:16px">
-            Verification takes 24 hours. Your data is never shared.
-          </p>
+      <!-- Progress bars -->
+      <div style="display:flex;gap:6px;padding:14px 20px 0">
+        <div style="flex:1;height:3px;border-radius:2px;background:#FFD700"></div>
+        <div style="flex:1;height:3px;border-radius:2px;background:#2A2A2A"></div>
+        <div style="flex:1;height:3px;border-radius:2px;background:#2A2A2A"></div>
+      </div>
+
+      <!-- Content -->
+      <div style="padding:28px 20px;flex:1;display:flex;flex-direction:column">
+        <h1 style="font:700 30px/1.2 'Playfair Display',Georgia,serif;color:#FFD700;margin:0 0 10px">
+          Who are you?
+        </h1>
+        <p style="font:400 14px/1.6 Inter,sans-serif;color:#5C5647;margin:0 0 28px">
+          Spolia is exclusive. Access requires professional verification.
+        </p>
+
+        <!-- 2×2 Role Grid -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:32px">
+          ${ROLES.map(r => `
+            <button class="role-card" data-role="${r.id}" aria-pressed="${r.id === role}"
+              style="background:#1A1A1A;border:1.5px solid ${r.id === role ? '#FFD700' : '#2A2A2A'};
+                border-radius:16px;padding:18px 12px 16px;cursor:pointer;text-align:center;
+                display:flex;flex-direction:column;align-items:center;gap:8px;
+                position:relative;transition:border-color 150ms,background 150ms;
+                ${r.id === role ? 'background:#1A1500' : ''}">
+              ${r.id === role ? `
+                <span style="position:absolute;top:8px;right:8px;width:20px;height:20px;border-radius:50%;
+                  background:#FFD700;color:#0D0D0D;display:flex;align-items:center;justify-content:center;
+                  font-size:11px;font-weight:700;line-height:1">✓</span>` : ''}
+              <span style="font-size:30px;line-height:1">${r.icon}</span>
+              <span style="font:600 13px/1.3 Inter,sans-serif;color:${r.id === role ? '#FFD700' : '#F5F0E8'}">${r.label}</span>
+              <span style="font:400 10px/1.3 Inter,sans-serif;color:#5C5647">${r.sub}</span>
+            </button>`).join('')}
         </div>
+
+        <div style="flex:1"></div>
+        <button id="continue-btn" ${!role ? 'disabled' : ''}
+          style="width:100%;height:52px;border-radius:14px;border:none;cursor:${role ? 'pointer' : 'not-allowed'};
+            background:${role ? '#FFD700' : '#2A2A2A'};
+            color:${role ? '#0D0D0D' : '#5C5647'};
+            font:600 15px/1 Inter,sans-serif;transition:all 200ms;
+            display:flex;align-items:center;justify-content:center;gap:8px">
+          Continue
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+        </button>
+        <p style="font:400 11px/1.5 Inter,sans-serif;color:#3A3A3A;text-align:center;margin-top:14px">
+          Verification takes 24 hours. Your data is never shared.
+        </p>
       </div>`;
     }
 
-    _step2() {
+    // ── Step 2: Credential upload ───────────────────────────────────
+    _step2HTML() {
         const role = ROLES.find(r => r.id === this.selectedRole);
         return `
-      <div style="min-height:100%;background:var(--color-bg-base);display:flex;flex-direction:column">
-        ${this._header('Upload Credentials')}
-        <div style="padding:0 24px;flex:1">
-          <h1 style="font:700 28px/1.2 'Playfair Display',Georgia,serif;color:var(--color-gold);margin-bottom:8px">Your Credentials</h1>
-          <p style="font:var(--text-body);color:var(--color-text-secondary);margin-bottom:28px;line-height:1.6">
-            As a <strong style="color:var(--color-text-primary)">${role?.label}</strong>, provide your ${role?.sub?.toLowerCase()}.
+      <!-- Header -->
+      <div style="display:flex;align-items:center;padding:max(env(safe-area-inset-top),18px) 20px 0;gap:12px">
+        <button id="back-btn" aria-label="Back"
+          style="width:36px;height:36px;border-radius:50%;background:#1A1A1A;border:1px solid #2A2A2A;
+            display:flex;align-items:center;justify-content:center;cursor:pointer;color:#F5F0E8">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
+        </button>
+        <span style="flex:1;text-align:center;font:600 15px/1 Inter,sans-serif;color:#F5F0E8">Upload Credentials</span>
+        <span style="font:400 12px/1 Inter,sans-serif;color:#5C5647;width:36px;text-align:right">2 of 3</span>
+      </div>
+
+      <!-- Progress bars -->
+      <div style="display:flex;gap:6px;padding:14px 20px 0">
+        <div style="flex:1;height:3px;border-radius:2px;background:#FFD700"></div>
+        <div style="flex:1;height:3px;border-radius:2px;background:#FFD700"></div>
+        <div style="flex:1;height:3px;border-radius:2px;background:#2A2A2A"></div>
+      </div>
+
+      <div style="padding:28px 20px;display:flex;flex-direction:column;gap:20px;flex:1">
+        <div>
+          <h1 style="font:700 26px/1.2 'Playfair Display',Georgia,serif;color:#FFD700;margin:0 0 8px">Your Credentials</h1>
+          <p style="font:400 13px/1.6 Inter,sans-serif;color:#5C5647;margin:0">
+            As a <strong style="color:#A09882">${role?.label}</strong>, provide your ${role?.sub?.toLowerCase()}.
           </p>
-
-          <!-- Credential number input -->
-          <div class="form-field">
-            <label class="form-label" for="cred-input">${role?.credential}</label>
-            <input class="form-input" id="cred-input" type="text"
-              placeholder="e.g. ${this.selectedRole === 'architect' ? 'CA/2019/47821' : 'Enter your registration number'}"
-              value="${this.credentialNumber}">
-          </div>
-
-          <!-- Document upload -->
-          <div style="margin-bottom:24px">
-            <label class="form-label">Supporting Document</label>
-            <div class="upload-zone" id="doc-upload-zone" style="margin-top:4px">
-              <div class="upload-zone__icon">${this.docFile ? '✅' : '📄'}</div>
-              <div class="upload-zone__text">${this.docFile ? this.docFile.name : 'Tap to upload document'}</div>
-              <div class="upload-zone__sub">PDF, JPG, PNG · Max 10MB</div>
-            </div>
-            <input type="file" id="doc-input" accept=".pdf,image/*" style="display:none">
-          </div>
-
-          <button id="continue-btn" class="btn btn--gold">
-            Continue →
-          </button>
         </div>
+
+        <!-- Role reminder chip -->
+        <div style="display:inline-flex;align-items:center;gap:8px;background:#1A1500;border:1px solid #3A3000;
+          border-radius:999px;padding:8px 14px;width:fit-content">
+          <span style="font-size:16px">${role?.icon}</span>
+          <span style="font:600 12px/1 Inter,sans-serif;color:#FFD700">${role?.label}</span>
+        </div>
+
+        <!-- Credential number -->
+        <div>
+          <label style="font:500 12px/1 Inter,sans-serif;color:#A09882;letter-spacing:0.06em;
+            text-transform:uppercase;display:block;margin-bottom:8px">${role?.credential}</label>
+          <input id="cred-input" type="text" value="${this.credentialNumber}"
+            placeholder="${role?.placeholder || 'Enter your number'}"
+            style="width:100%;height:52px;box-sizing:border-box;background:#1A1A1A;border:1.5px solid #2A2A2A;
+              border-radius:12px;color:#F5F0E8;font:400 15px/1 Inter,sans-serif;padding:0 16px;
+              outline:none;transition:border-color 150ms"
+            onfocus="this.style.borderColor='#FFD700'" onblur="this.style.borderColor='#2A2A2A'">
+        </div>
+
+        <!-- Document upload -->
+        <div>
+          <label style="font:500 12px/1 Inter,sans-serif;color:#A09882;letter-spacing:0.06em;
+            text-transform:uppercase;display:block;margin-bottom:8px">Supporting Document</label>
+          <div id="doc-zone" role="button" tabindex="0"
+            style="width:100%;min-height:100px;box-sizing:border-box;background:#1A1A1A;
+              border:1.5px dashed ${this.docFile ? '#4CAF82' : '#2A2A2A'};border-radius:12px;
+              display:flex;flex-direction:column;align-items:center;justify-content:center;
+              gap:6px;cursor:pointer;padding:20px;transition:border-color 150ms"
+            aria-label="Upload credential document">
+            <span style="font-size:24px">${this.docFile ? '✅' : '📄'}</span>
+            <span style="font:500 13px/1 Inter,sans-serif;color:${this.docFile ? '#4CAF82' : '#F5F0E8'}">
+              ${this.docFile ? this.docFile.name : 'Tap to upload document'}
+            </span>
+            <span style="font:400 11px/1 Inter,sans-serif;color:#5C5647">PDF, JPG, PNG · Max 10MB</span>
+          </div>
+          <input type="file" id="doc-input" accept=".pdf,image/*" style="display:none">
+        </div>
+
+        <div style="flex:1"></div>
+        <button id="continue-btn"
+          style="width:100%;height:52px;border-radius:14px;border:none;cursor:pointer;
+            background:#FFD700;color:#0D0D0D;font:600 15px/1 Inter,sans-serif;
+            display:flex;align-items:center;justify-content:center;gap:8px" id="continue-btn">
+          Submit Application
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+        </button>
+        <p style="font:400 11px/1.5 Inter,sans-serif;color:#3A3A3A;text-align:center;margin-top:4px">
+          Credentials are reviewed by our team and never shared publicly.
+        </p>
       </div>`;
     }
 
-    _step3() {
+    // ── Step 3: Confirmation ────────────────────────────────────────
+    _step3HTML() {
         const role = ROLES.find(r => r.id === this.selectedRole);
         return `
-      <div style="min-height:100%;background:var(--color-bg-base);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 24px;text-align:center">
-        <div style="font-size:64px;margin-bottom:24px">⏳</div>
-        <h1 style="font:700 28px/1.2 'Playfair Display',Georgia,serif;color:var(--color-gold);margin-bottom:12px">
+      <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
+        padding:60px 24px 40px;text-align:center">
+
+        <!-- Animated check -->
+        <div style="width:88px;height:88px;border-radius:50%;background:rgba(255,215,0,0.1);
+          border:2px solid rgba(255,215,0,0.3);display:flex;align-items:center;justify-content:center;
+          font-size:40px;margin-bottom:28px">⏳</div>
+
+        <h1 style="font:700 28px/1.3 'Playfair Display',Georgia,serif;color:#FFD700;margin:0 0 12px">
           Application Submitted
         </h1>
-        <p style="font:var(--text-body);color:var(--color-text-secondary);line-height:1.7;margin-bottom:8px;max-width:340px">
-          Our team will verify your credentials and get back to you within <strong style="color:var(--color-text-primary)">24 hours</strong>.
+        <p style="font:400 14px/1.7 Inter,sans-serif;color:#A09882;max-width:320px;margin:0 0 32px">
+          Our team will verify your credentials within
+          <strong style="color:#F5F0E8">24 hours</strong>.
+          You'll receive an email when your account is approved.
         </p>
-        <p style="font:var(--text-caption);color:var(--color-text-muted);margin-bottom:40px">
-          You'll receive an email at the address linked to your Google account.
-        </p>
-        <div style="background:var(--color-bg-surface);border:1px solid var(--color-border);border-radius:16px;padding:20px;width:100%;max-width:360px;margin-bottom:32px">
-          <div style="font:var(--text-label);color:var(--color-text-muted);letter-spacing:0.08em;margin-bottom:12px">YOUR APPLICATION</div>
-          <div style="display:flex;justify-content:space-between;margin-bottom:8px">
-            <span style="font:var(--text-caption);color:var(--color-text-secondary)">Role</span>
-            <span style="font:var(--text-caption);color:var(--color-text-primary);font-weight:600">${role?.label || '—'}</span>
-          </div>
-          <div style="display:flex;justify-content:space-between;margin-bottom:8px">
-            <span style="font:var(--text-caption);color:var(--color-text-secondary)">Credential</span>
-            <span style="font:var(--text-caption);color:var(--color-text-primary);font-weight:600">${this.credentialNumber || '—'}</span>
-          </div>
-          <div style="display:flex;justify-content:space-between">
-            <span style="font:var(--text-caption);color:var(--color-text-secondary)">Status</span>
-            <span style="font:var(--text-caption);color:var(--color-amber);font-weight:600">⏳ Under Review</span>
-          </div>
+
+        <!-- Application summary card -->
+        <div style="width:100%;max-width:360px;background:#1A1A1A;border:1px solid #2A2A2A;
+          border-radius:20px;padding:20px 24px;margin-bottom:32px;text-align:left">
+          <div style="font:600 10px/1 Inter,sans-serif;color:#5C5647;letter-spacing:0.12em;
+            text-transform:uppercase;margin-bottom:16px">YOUR APPLICATION</div>
+          ${[
+              ['Role', `${role?.icon || ''} ${role?.label || '—'}`],
+              ['Credential', this.credentialNumber || '—'],
+              ['Status', '⏳ Under Review'],
+              ['Timeline', '24 hours'],
+          ].map(([k, v]) => `
+            <div style="display:flex;justify-content:space-between;align-items:center;
+              padding:10px 0;border-bottom:1px solid #222;${k === 'Timeline' ? 'border-bottom:none' : ''}">
+              <span style="font:400 13px/1 Inter,sans-serif;color:#5C5647">${k}</span>
+              <span style="font:600 13px/1 Inter,sans-serif;color:${k === 'Status' ? '#F5A623' : '#F5F0E8'}">${v}</span>
+            </div>`).join('')}
         </div>
-        <button class="btn btn--outline" id="explore-btn" style="max-width:360px">
-          Explore in Demo Mode
+
+        <button id="explore-btn"
+          style="width:100%;max-width:360px;height:52px;border-radius:14px;
+            border:1.5px solid #2A2A2A;background:transparent;color:#FFD700;
+            font:600 15px/1 Inter,sans-serif;cursor:pointer">
+          Explore in Demo Mode →
         </button>
+        <p style="font:400 11px/1.5 Inter,sans-serif;color:#3A3A3A;margin-top:14px">
+          You can browse the app while your verification is being processed.
+        </p>
       </div>`;
     }
 
     _bindEvents() {
-        const backBtn = this.el.querySelector('#back-btn');
-        backBtn?.addEventListener('click', () => {
+        // Back button
+        this.el.querySelector('#back-btn')?.addEventListener('click', () => {
             if (this.step === 1) window.navigate?.('login');
-            else { this.step--; this.el.innerHTML = this._renderStep(); this._bindEvents(); }
+            else { this.step--; this.el.innerHTML = `<div style="min-height:100dvh;background:#0D0D0D;display:flex;flex-direction:column;overflow-y:auto">${this._renderCurrentStep()}</div>`; this._bindEvents(); }
         });
 
-        // Step 1: role selection
+        // Role cards (step 1)
         this.el.querySelectorAll('.role-card').forEach(card => {
             card.addEventListener('click', () => {
                 this.selectedRole = card.dataset.role;
-                this.el.innerHTML = this._renderStep();
+                this.el.innerHTML = `<div style="min-height:100dvh;background:#0D0D0D;display:flex;flex-direction:column;overflow-y:auto">${this._renderCurrentStep()}</div>`;
                 this._bindEvents();
             });
         });
 
-        // Continue button
-        const continueBtn = this.el.querySelector('#continue-btn');
-        continueBtn?.addEventListener('click', () => this._handleContinue());
+        // Continue / Submit button
+        this.el.querySelector('#continue-btn')?.addEventListener('click', () => this._handleContinue());
 
-        // Document upload (step 2)
-        const zone = this.el.querySelector('#doc-upload-zone');
+        // Doc upload (step 2)
+        const zone = this.el.querySelector('#doc-zone');
         const input = this.el.querySelector('#doc-input');
         zone?.addEventListener('click', () => input?.click());
+        zone?.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') input?.click(); });
         input?.addEventListener('change', () => {
-            if (input.files[0]) {
-                this.docFile = input.files[0];
-                this.el.innerHTML = this._renderStep();
-                this._bindEvents();
-            }
+            if (input.files[0]) { this.docFile = input.files[0]; this.el.innerHTML = `<div style="min-height:100dvh;background:#0D0D0D;display:flex;flex-direction:column;overflow-y:auto">${this._renderCurrentStep()}</div>`; this._bindEvents(); }
         });
 
         // Credential input (step 2)
-        const credInput = this.el.querySelector('#cred-input');
-        credInput?.addEventListener('input', () => { this.credentialNumber = credInput.value; });
+        this.el.querySelector('#cred-input')?.addEventListener('input', e => { this.credentialNumber = e.target.value; });
 
-        // Explore button (step 3)
-        this.el.querySelector('#explore-btn')?.addEventListener('click', () => {
-            window.navigate?.('radar');
-        });
+        // Explore (step 3)
+        this.el.querySelector('#explore-btn')?.addEventListener('click', () => window.navigate?.('radar'));
     }
 
     async _handleContinue() {
-        if (this.step === 1 && !this.selectedRole) return;
-
-        if (this.step === 2) {
-            // Validate credential number
-            const credInput = this.el.querySelector('#cred-input');
-            const cred = credInput?.value?.trim();
-            if (!cred) {
-                window.showToast?.('Please enter your credential number.', 'error');
-                return;
-            }
-            this.credentialNumber = cred;
-
-            // Start submit to Firebase
-            await this._submitToFirebase();
+        if (this.step === 1) {
+            if (!this.selectedRole) return;
+            this.step = 2;
+            this.el.innerHTML = `<div style="min-height:100dvh;background:#0D0D0D;display:flex;flex-direction:column;overflow-y:auto">${this._renderCurrentStep()}</div>`;
+            this._bindEvents();
             return;
         }
 
-        // Step 1 → 2
-        this.step++;
-        this.el.innerHTML = this._renderStep();
-        this._bindEvents();
-    }
-
-    async _submitToFirebase() {
+        // Step 2 → submit
         if (this.submitting) return;
-        this.submitting = true;
+        const cred = this.el.querySelector('#cred-input')?.value?.trim();
+        if (!cred) { window.showToast?.('Please enter your credential number.', 'error'); return; }
+        this.credentialNumber = cred;
 
         const btn = this.el.querySelector('#continue-btn');
-        if (btn) { btn.textContent = 'Submitting...'; btn.disabled = true; }
+        if (btn) { btn.textContent = 'Submitting…'; btn.disabled = true; }
+        this.submitting = true;
 
         try {
             const user = FirebaseAuth.getCurrentUser();
             let docUrl = null;
-
-            // Upload credential doc if provided
             if (this.docFile && user) {
-                try {
-                    docUrl = await FirebaseStorage.uploadCOADocument(this.docFile, user.uid);
-                } catch (e) {
-                    console.warn('[Onboarding] Doc upload failed:', e);
-                    // Non-blocking — continue without doc URL
-                }
+                try { docUrl = await FirebaseStorage.uploadCOADocument(this.docFile, user.uid); }
+                catch (e) { console.warn('[Onboarding] doc upload failed:', e); }
             }
-
-            // Write to Firestore
             if (user) {
                 await FirebaseDB.submitVerificationApplication(user.uid, {
-                    role: this.selectedRole,
-                    credentialNumber: this.credentialNumber,
-                    docUrl
+                    role: this.selectedRole, credentialNumber: this.credentialNumber, docUrl
                 });
             }
-
-            window.showToast?.('Application submitted! We\'ll review within 24 hours. ✦', 'success');
-
-            // Advance to confirmation step
+            window.showToast?.('Application submitted! ✦', 'success');
             this.step = 3;
-            this.el.innerHTML = this._renderStep();
+            this.el.innerHTML = `<div style="min-height:100dvh;background:#0D0D0D;display:flex;flex-direction:column;overflow-y:auto">${this._renderCurrentStep()}</div>`;
             this._bindEvents();
-
         } catch (err) {
-            console.error('[Onboarding] Submit failed:', err);
+            console.error('[Onboarding] submit failed:', err);
             window.showToast?.('Submission failed. Please try again.', 'error');
-            if (btn) { btn.textContent = 'Continue →'; btn.disabled = false; }
+            if (btn) { btn.textContent = 'Submit Application'; btn.disabled = false; }
         } finally {
             this.submitting = false;
         }
     }
 
     onActivate() {
-        // Reset to step 1 each time the screen is opened fresh
-        const user = FirebaseAuth.getCurrentUser?.();
-        if (user && this.step === 3) {
-            // Already submitted in this session — go straight to radar
-            window.navigate?.('radar');
-        }
+        if (this.step === 3) window.navigate?.('radar');
     }
 }

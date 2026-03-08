@@ -41,6 +41,7 @@ const App = {
     currentUser: null,
     currentUserProfile: null,   // Firestore profile doc
     isAuthenticated: false,
+    isInitialized: false,       // true once onAuthStateChanged fires for the first time
     screenInstances: {},
 
     routes: {
@@ -221,13 +222,14 @@ async function handleAuthenticatedUser(user) {
     const currentRouteConfig = App.routes[App.currentRoute];
     if (App.currentRoute && !currentRouteConfig?.public) return; // already on a protected route
 
-    if (!profile || profile.onboardingComplete === false && !profile.role) {
+    // FIX: wrap the compound condition in parentheses to avoid && > || precedence bug
+    if (!profile || (profile.onboardingComplete === false && !profile.role)) {
         // Brand-new account — never submitted verification yet
         navigate('onboarding');
     } else if (profile.verificationStatus === 'pending') {
-        // Already applied but pending review — go to radar in demo-like mode with toast
+        // Already applied but pending review — go to radar with toast
         navigate('radar');
-        showToast(`Welcome back, ${user.displayName?.split(' ')[0] || 'back'}! ✦ Your verification is under review.`, 'info', 5000);
+        showToast(`Welcome back, ${user.displayName?.split(' ')[0] || 'back'}! ✦ Verification under review.`, 'info', 5000);
     } else {
         // Verified or returning user
         navigate('radar');
@@ -275,6 +277,7 @@ async function init() {
         App.currentUser = MOCK_USER_PROFILE;
         App.currentUserProfile = MOCK_USER_PROFILE;
         App.isAuthenticated = true;
+        App.isInitialized = true;
         navigate('radar');
         const demoBadge = document.createElement('div');
         demoBadge.style.cssText = `
@@ -288,25 +291,31 @@ async function init() {
         demoBadge.textContent = 'Demo Mode';
         document.body.appendChild(demoBadge);
     } else {
-        // Handle result from signInWithRedirect (Google returns the user here after auth)
-        try {
-            const result = await FirebaseAuth.getRedirectResult();
-            if (result?.user) {
-                console.log('[Auth] Redirect sign-in successful:', result.user.displayName);
-            }
-        } catch (err) {
-            console.error('[Auth] Redirect result error:', err);
-        }
+        // Handle redirect sign-in result (fallback for mobile where popup is blocked)
+        FirebaseAuth.getRedirectResult().then(result => {
+            if (result?.user) console.log('[Auth] Redirect sign-in resolved:', result.user.displayName);
+        }).catch(err => {
+            if (err.code !== 'auth/no-current-user') console.warn('[Auth] getRedirectResult:', err.code);
+        });
 
         FirebaseAuth.onAuthStateChanged(async (user) => {
+            const firstFire = !App.isInitialized;
+            App.isInitialized = true;
+
             if (user) {
                 await handleAuthenticatedUser(user);
             } else {
                 App.currentUser = null;
                 App.currentUserProfile = null;
                 App.isAuthenticated = false;
-                const current = App.routes[App.currentRoute];
-                if (App.currentRoute && !current?.public) navigate('login');
+                // GUARD: don't navigate to login on the very first cold-start fire
+                // if we're already on a public screen — Firebase resolves the session
+                // asynchronously and the first callback may arrive as 'signed out'
+                // before the session is restored from IndexedDB.
+                if (!firstFire) {
+                    const current = App.routes[App.currentRoute];
+                    if (App.currentRoute && !current?.public) navigate('login');
+                }
             }
         });
     }

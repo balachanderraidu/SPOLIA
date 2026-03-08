@@ -5,7 +5,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
 import { getAnalytics } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-analytics.js";
 import {
-    getAuth, GoogleAuthProvider, signInWithRedirect, getRedirectResult,
+    getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult,
     signOut as firebaseSignOut, onAuthStateChanged as firebaseOnAuthStateChanged
 } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
 import {
@@ -41,7 +41,18 @@ const FirebaseAuth = {
     signInWithGoogle: async () => {
         const provider = new GoogleAuthProvider();
         provider.setCustomParameters({ prompt: 'select_account' });
-        return signInWithRedirect(auth, provider);
+        // Use popup on desktop; fall back to redirect on mobile if popup is blocked
+        try {
+            return await signInWithPopup(auth, provider);
+        } catch (popupErr) {
+            if (popupErr.code === 'auth/popup-blocked' ||
+                popupErr.code === 'auth/cancelled-popup-request' ||
+                popupErr.code === 'auth/popup-closed-by-user') {
+                // Popup blocked (common on mobile) — fall back to redirect
+                return signInWithRedirect(auth, provider);
+            }
+            throw popupErr;
+        }
     },
 
     getRedirectResult: async () => {
