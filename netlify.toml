@@ -2,9 +2,6 @@
   publish = "."
   command = ""
 
-# API keys in this project are client-side, domain-restricted keys.
-# They are intentionally public and secured via allowed-domains in each
-# respective developer console (Google Cloud, Firebase, AI Studio).
 [build.environment]
   NODE_VERSION = "20"
   SECRETS_SCAN_ENABLED = "false"
@@ -17,17 +14,42 @@
     Referrer-Policy = "strict-origin-when-cross-origin"
     Permissions-Policy = "camera=(self), microphone=(self), geolocation=(self)"
 
+# Service worker must NEVER be cached — browser needs the fresh version to detect updates
 [[headers]]
   for = "/service-worker.js"
   [headers.values]
-    Cache-Control = "no-cache"
+    Cache-Control = "no-cache, no-store, must-revalidate"
+
+# HTML must not be cached — it's the entry point
+[[headers]]
+  for = "/*.html"
+  [headers.values]
+    Cache-Control = "no-cache, no-store, must-revalidate"
 
 [[headers]]
-  for = "*.js"
+  for = "/"
   [headers.values]
-    Cache-Control = "public, max-age=31536000, immutable"
+    Cache-Control = "no-cache, no-store, must-revalidate"
+
+# JS and CSS: short cache (5 min) — files have no content hash so cannot use immutable
+[[headers]]
+  for = "/*.js"
+  [headers.values]
+    Cache-Control = "public, max-age=300"
 
 [[headers]]
-  for = "*.css"
+  for = "/*.css"
   [headers.values]
-    Cache-Control = "public, max-age=31536000, immutable"
+    Cache-Control = "public, max-age=300"
+
+# Components directory
+[[headers]]
+  for = "/components/*.js"
+  [headers.values]
+    Cache-Control = "public, max-age=300"
+
+# Static assets (icons/images) can be cached longer
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=86400"
