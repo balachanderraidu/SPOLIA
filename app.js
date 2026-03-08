@@ -219,7 +219,7 @@ async function handleAuthenticatedUser(user) {
     App.currentUserProfile = profile;
 
     const currentRouteConfig = App.routes[App.currentRoute];
-    if (!currentRouteConfig?.public) return; // already on a protected route
+    if (App.currentRoute && !currentRouteConfig?.public) return; // already on a protected route
 
     if (!profile || profile.onboardingComplete === false && !profile.role) {
         // Brand-new account — never submitted verification yet
@@ -268,7 +268,7 @@ async function init() {
 
     // Hide nav immediately — we always start on login.
     document.getElementById('bottom-nav').style.display = 'none';
-    App.currentRoute = null;
+    App.currentRoute = 'login';
 
     // ── Auth State Listener ──────────────────────────────────────
     if (DEMO_MODE) {
@@ -306,7 +306,7 @@ async function init() {
                 App.currentUserProfile = null;
                 App.isAuthenticated = false;
                 const current = App.routes[App.currentRoute];
-                if (!current?.public) navigate('login');
+                if (App.currentRoute && !current?.public) navigate('login');
             }
         });
     }
