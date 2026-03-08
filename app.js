@@ -36,32 +36,32 @@ import { ListingCreateScreen } from './components/listing-create.js';
 
 // ── App State ──────────────────────────────────────────────────────
 const App = {
-    currentRoute: 'login',
+    currentRoute: 'radar',
     previousRoute: null,
     currentUser: null,
-    currentUserProfile: null,   // Firestore profile doc
-    isAuthenticated: false,
-    isInitialized: false,       // true once onAuthStateChanged fires for the first time
+    currentUserProfile: null,
+    isAuthenticated: true,      // No auth gate — app is open
+    isInitialized: true,
     screenInstances: {},
 
     routes: {
-        // Auth screens (no nav bar)
+        // Auth screens kept but never auto-navigated to
         login:      { title: 'Welcome to Spolia', component: LoginScreen,      public: true, hideNav: true },
         onboarding: { title: 'Verification',      component: OnboardingScreen, public: true, hideNav: true },
 
-        // Main app screens
-        radar:   { title: 'The Radar',    component: RadarScreen },
-        scanner: { title: 'AI Scanner',   component: ScannerScreen },
-        impact:  { title: 'Impact',       component: ImpactScreen },
-        vendors: { title: 'Vendors',      component: VendorsScreen },
-        tools:   { title: 'Site Tools',   component: ToolsScreen },
-        profile: { title: 'Profile',      component: ProfileScreen },
+        // Main app screens (all public — no auth wall)
+        radar:   { title: 'The Radar',    component: RadarScreen,   public: true },
+        scanner: { title: 'AI Scanner',   component: ScannerScreen, public: true },
+        impact:  { title: 'Impact',       component: ImpactScreen,  public: true },
+        vendors: { title: 'Vendors',      component: VendorsScreen, public: true },
+        tools:   { title: 'Site Tools',   component: ToolsScreen,   public: true },
+        profile: { title: 'Profile',      component: ProfileScreen, public: true },
 
         // Detail / action screens (no nav tab)
-        'material-detail': { title: 'Listing Detail', component: MaterialDetailScreen },
-        dispute:           { title: 'Report Issue',   component: DisputeScreen },
-        logistics:         { title: 'Pickup Route',   component: LogisticsScreen },
-        'listing-create':  { title: 'Create Listing', component: ListingCreateScreen }
+        'material-detail': { title: 'Listing Detail', component: MaterialDetailScreen, public: true },
+        dispute:           { title: 'Report Issue',   component: DisputeScreen,        public: true },
+        logistics:         { title: 'Pickup Route',   component: LogisticsScreen,      public: true },
+        'listing-create':  { title: 'Create Listing', component: ListingCreateScreen,  public: true }
     }
 };
 
@@ -240,19 +240,15 @@ async function handleAuthenticatedUser(user) {
 // ── Initialize App ────────────────────────────────────────────────
 async function init() {
     await registerServiceWorker();
-    // Seed Firestore platformStats/global if it doesn't exist yet (no-op if it does)
     FirebaseDB.initPlatformStats().catch(() => {});
 
     // Build all screens into the DOM
     const appEl = document.getElementById('app');
-    const routeKeys = Object.keys(App.routes);
-
-    routeKeys.forEach(route => {
+    Object.keys(App.routes).forEach(route => {
         const screen = document.createElement('div');
         screen.id = `screen-${route}`;
-        screen.className = `screen ${route === 'login' ? 'active' : ''}`;
+        screen.className = `screen ${route === 'radar' ? 'active' : ''}`;
         appEl.appendChild(screen);
-
         const ComponentClass = App.routes[route].component;
         const instance = new ComponentClass(screen);
         App.screenInstances[route] = instance;
@@ -260,65 +256,38 @@ async function init() {
     });
 
     buildNav();
-
-    // Register globals
     window.navigate = navigate;
     window.showToast = showToast;
     window.App = App;
 
-    document.title = 'Welcome to Spolia';
+    // Boot straight to radar — no auth gate
+    document.getElementById('bottom-nav').style.display = '';
+    App.currentRoute = 'radar';
+    document.title = 'The Radar — Spolia';
 
-    // Hide nav immediately — we always start on login.
-    document.getElementById('bottom-nav').style.display = 'none';
-    App.currentRoute = 'login';
-
-    // ── Auth State Listener ──────────────────────────────────────
-    if (DEMO_MODE) {
-        App.currentUser = MOCK_USER_PROFILE;
-        App.currentUserProfile = MOCK_USER_PROFILE;
-        App.isAuthenticated = true;
-        App.isInitialized = true;
-        navigate('radar');
-        const demoBadge = document.createElement('div');
-        demoBadge.style.cssText = `
-            position:fixed;top:env(safe-area-inset-top,8px);right:12px;
-            background:rgba(255,215,0,0.15);border:1px solid rgba(255,215,0,0.3);
-            color:#FFD700;font:600 10px/1 Inter,sans-serif;
-            letter-spacing:0.08em;text-transform:uppercase;
-            padding:4px 8px;border-radius:100px;z-index:999;
-            pointer-events:none;
-        `;
-        demoBadge.textContent = 'Demo Mode';
-        document.body.appendChild(demoBadge);
-    } else {
-        // Handle redirect sign-in result (fallback for mobile where popup is blocked)
-        FirebaseAuth.getRedirectResult().then(result => {
-            if (result?.user) console.log('[Auth] Redirect sign-in resolved:', result.user.displayName);
-        }).catch(err => {
-            if (err.code !== 'auth/no-current-user') console.warn('[Auth] getRedirectResult:', err.code);
-        });
-
-        FirebaseAuth.onAuthStateChanged(async (user) => {
-            const firstFire = !App.isInitialized;
-            App.isInitialized = true;
-
-            if (user) {
-                await handleAuthenticatedUser(user);
-            } else {
-                App.currentUser = null;
-                App.currentUserProfile = null;
-                App.isAuthenticated = false;
-                // GUARD: don't navigate to login on the very first cold-start fire
-                // if we're already on a public screen — Firebase resolves the session
-                // asynchronously and the first callback may arrive as 'signed out'
-                // before the session is restored from IndexedDB.
-                if (!firstFire) {
-                    const current = App.routes[App.currentRoute];
-                    if (App.currentRoute && !current?.public) navigate('login');
-                }
-            }
-        });
-    }
+    // Silently resolve auth in the background.
+    // If the user is signed in, populate App.currentUser so profile/listing
+    // features work — but NEVER redirect to login.
+    FirebaseAuth.onAuthStateChanged(async (user) => {
+        if (user) {
+            App.currentUser = user;
+            App.isAuthenticated = true;
+            // Silently sync profile without redirecting
+            try {
+                await FirebaseDB.upsertUserProfile(user.uid, {
+                    displayName: user.displayName || '',
+                    email: user.email || '',
+                    photoURL: user.photoURL || null
+                });
+                App.currentUserProfile = await FirebaseDB.getUserProfile(user.uid);
+            } catch (_) {}
+        } else {
+            App.currentUser = null;
+            App.currentUserProfile = null;
+            App.isAuthenticated = false;
+            // No redirect — stay wherever the user is
+        }
+    });
 }
 
 // ── SVG Icons ─────────────────────────────────────────────────────
