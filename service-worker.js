@@ -4,7 +4,7 @@
 //             Network-first for API calls
 // ──────────────────────────────────────────────────────────────────
 
-const CACHE_NAME = "spolia-v4";
+const CACHE_NAME = "spolia-v5";
 const STATIC_ASSETS = [
     "/",
     "/index.html",
