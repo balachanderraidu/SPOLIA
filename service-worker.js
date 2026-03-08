@@ -4,7 +4,7 @@
 //           Cache-first only for images/fonts (truly static)
 // ──────────────────────────────────────────────────────────────────
 
-const CACHE_NAME = "spolia-v6";
+const CACHE_NAME = "spolia-v7";
 
 // Only cache truly static binary assets — NOT JS or HTML
 const STATIC_ASSETS = [
