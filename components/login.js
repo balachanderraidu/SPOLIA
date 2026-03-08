@@ -269,7 +269,7 @@ export class LoginScreen {
             btn.disabled = true;
             btn.textContent = 'Sending…';
             try {
-                await FirebaseAuth.sendOTP(phone, btn);
+                await FirebaseAuth.sendOTP(phone);
                 this._renderOTP(raw);
             } catch (err) {
                 console.error('[Login] sendOTP failed:', err);
@@ -338,8 +338,7 @@ export class LoginScreen {
 
         this.el.querySelector('#resend-btn')?.addEventListener('click', async () => {
             try {
-                await FirebaseAuth.sendOTP(`+91${phone}`,
-                    this.el.querySelector('#resend-btn'));
+                await FirebaseAuth.sendOTP(`+91${phone}`);
                 window.showToast?.('New code sent', 'info');
             } catch(err) {
                 window.showToast?.('Could not resend. Try again.', 'error');

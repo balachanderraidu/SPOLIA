@@ -343,7 +343,7 @@ export class OnboardingScreen {
                 sendBtn.disabled = true;
                 sendBtn.textContent = 'Sending…';
                 try {
-                    await FirebaseAuth.sendOTP(this.verifiedPhone, sendBtn);
+                    await FirebaseAuth.sendOTP(this.verifiedPhone);
                     sendBtn.style.display = 'none';
                     otpSection.style.display = 'flex';
                     verifyBtn.style.display = 'block';

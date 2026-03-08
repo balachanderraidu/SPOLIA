@@ -54,14 +54,29 @@ const FirebaseAuth = {
         }
     },
 
-    /** Set up invisible reCAPTCHA on a button element and start phone sign-in */
-    sendOTP: async (phoneNumber, buttonEl) => {
-        // Clear any previous verifier
+    /** Set up invisible reCAPTCHA and start phone sign-in.
+     *  Requires a <div id="recaptcha-container"></div> somewhere in the page DOM.
+     *  The element can be hidden — Firebase only uses it as a render anchor. */
+    sendOTP: async (phoneNumber) => {
+        // Clear any previous verifier to avoid "reCAPTCHA has already been rendered" errors
         if (window._recaptchaVerifier) {
             try { window._recaptchaVerifier.clear(); } catch (_) {}
+            window._recaptchaVerifier = null;
         }
-        const verifier = new RecaptchaVerifier(auth, buttonEl, { size: 'invisible' });
+        // Use a stable string container ID — more reliable than passing a live DOM element
+        const verifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
+            size: 'invisible',
+            callback: () => { /* OTP sent successfully */ },
+            'expired-callback': () => {
+                if (window._recaptchaVerifier) {
+                    try { window._recaptchaVerifier.clear(); } catch (_) {}
+                    window._recaptchaVerifier = null;
+                }
+            }
+        });
         window._recaptchaVerifier = verifier;
+        // Explicitly render before calling signInWithPhoneNumber
+        await verifier.render();
         const result = await signInWithPhoneNumber(auth, phoneNumber, verifier);
         window._confirmationResult = result;
         return result;
