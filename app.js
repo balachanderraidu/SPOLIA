@@ -168,18 +168,38 @@ window.addEventListener('appinstalled', () => {
 });
 
 export function triggerInstall() {
-    console.log('[PWA] triggerInstall called, deferredInstallPrompt:', deferredInstallPrompt);
-    if (!deferredInstallPrompt) {
-        window.showToast?.('Open this site in Chrome/Edge on mobile to install', 'info');
+    if (deferredInstallPrompt) {
+        deferredInstallPrompt.prompt();
+        deferredInstallPrompt.userChoice.then((choice) => {
+            console.log('[PWA] User choice:', choice.outcome);
+            deferredInstallPrompt = null;
+            const banner = document.getElementById('install-banner');
+            if (banner) banner.setAttribute('hidden', '');
+        });
         return;
     }
-    deferredInstallPrompt.prompt();
-    deferredInstallPrompt.userChoice.then((choice) => {
-        console.log('[PWA] User choice:', choice.outcome);
-        deferredInstallPrompt = null;
-        const banner = document.getElementById('install-banner');
-        if (banner) banner.setAttribute('hidden', '');
-    });
+
+    // Prompt already consumed or not available — show manual install guide
+    const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+    const guide = document.createElement('div');
+    guide.style.cssText = `position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.7);display:flex;align-items:flex-end`;
+    guide.innerHTML = `
+      <div style="width:100%;background:#1A1A1A;border-radius:24px 24px 0 0;padding:28px 24px 40px;
+        border-top:1px solid #2A2A2A">
+        <div style="width:36px;height:4px;background:#3A3A3A;border-radius:2px;margin:0 auto 24px"></div>
+        <div style="font:700 17px/1 'Playfair Display',Georgia,serif;color:#FFD700;margin-bottom:8px">
+          📲 Install Spolia
+        </div>
+        <p style="font:400 13px/1.6 Inter,sans-serif;color:#A09882;margin:0 0 20px">
+          ${isIOS
+            ? `Tap the <strong style="color:#F5F0E8">Share button ⬆</strong> at the bottom of Safari, then tap <strong style="color:#F5F0E8">"Add to Home Screen"</strong>`
+            : `Tap the <strong style="color:#F5F0E8">menu (⋮)</strong> in the top-right corner of Chrome, then tap <strong style="color:#F5F0E8">"Add to Home screen"</strong>`}
+        </p>
+        <button style="width:100%;height:48px;border-radius:14px;background:#FFD700;border:none;
+          font:600 15px/1 Inter,sans-serif;color:#0D0D0D;cursor:pointer">Got it</button>
+      </div>`;
+    guide.addEventListener('click', e => { if (e.target === guide || e.target.tagName === 'BUTTON') guide.remove(); });
+    document.body.appendChild(guide);
 }
 window.triggerInstall = triggerInstall;
 
