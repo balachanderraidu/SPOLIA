@@ -294,18 +294,13 @@ const FirebaseDB = {
                     wallet: { balance: 0, currency: "₹", pendingBonds: 0 }
                 });
             } else {
-                // Existing user — only update basic auth fields (don't clobber onboardingComplete etc.)
-                const updates = {
-                    displayName: profileData.displayName || snap.data().displayName || '',
-                    email: profileData.email || snap.data().email || '',
-                    photoURL: profileData.photoURL || snap.data().photoURL || null,
+                // Existing user — merge provided fields; strip fields only admin should set.
+                const { uid: _uid, role, verified, onboardingComplete, createdAt,
+                        impact, wallet, ...safeUpdates } = profileData;
+                await updateDoc(userRef, {
+                    ...safeUpdates,
                     lastSeenAt: serverTimestamp()
-                };
-                // Only store phoneNumber if it's actually present (phone auth users)
-                if (profileData.phoneNumber) {
-                    updates.phoneNumber = profileData.phoneNumber;
-                }
-                await updateDoc(userRef, updates);
+                });
             }
         } catch (err) {
             console.warn("[FirebaseDB] upsertUserProfile error:", err);

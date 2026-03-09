@@ -1,5 +1,5 @@
 // components/profile.js — User Profile (Stitch-designed + Live Firebase)
-import { FirebaseAuth, FirebaseDB, MOCK_USER_PROFILE } from '../firebase-config.js';
+import { FirebaseAuth, FirebaseDB } from '../firebase-config.js';
 
 const ROLE_MAP = {
     architect:  { label: 'ARCHITECT',         icon: '🏛️', color: '#4B9FD4' },
@@ -17,13 +17,42 @@ export class ProfileScreen {
         this._unsubscribe = null;
     }
 
+    _renderSkeleton() {
+        this.el.innerHTML = `
+      <div style="min-height:100%;background:#0D0D0D;padding-bottom:100px">
+        <div style="display:flex;align-items:center;justify-content:space-between;
+          padding:max(env(safe-area-inset-top),16px) 20px 12px">
+          <h1 style="font:700 22px/1 'Playfair Display',Georgia,serif;color:#FFD700">Profile</h1>
+        </div>
+        <div style="text-align:center;padding:40px 20px">
+          <div style="width:88px;height:88px;border-radius:50%;background:#1A1A1A;
+            margin:0 auto 16px;animation:skeleton-pulse 1.5s ease infinite"></div>
+          <div style="height:18px;width:140px;background:#1A1A1A;border-radius:8px;
+            margin:0 auto 10px;animation:skeleton-pulse 1.5s ease infinite"></div>
+          <div style="height:13px;width:100px;background:#1A1A1A;border-radius:6px;
+            margin:0 auto;animation:skeleton-pulse 1.5s ease infinite"></div>
+        </div>
+        <style>
+          @keyframes skeleton-pulse {
+            0%,100%{opacity:0.4} 50%{opacity:0.8}
+          }
+        </style>
+      </div>`;
+    }
+
     render(profile = null) {
-        const u = profile || this.profile || MOCK_USER_PROFILE;
+        const u = profile || this.profile;
+        // If we still have no real profile data, show skeleton and wait for onActivate
+        if (!u) { this._renderSkeleton(); return; }
+
         const auth = this.user;
         const roleInfo = ROLE_MAP[u.role] || null;
         const photoURL = auth?.photoURL || u.photoURL || null;
-        const displayName = auth?.displayName || u.displayName || 'Professional';
-        const entity = u.entity || u.email || '';
+        // Prefer auth displayName (reflects Google account name) then Firestore, then fallback
+        const displayName = (auth?.displayName && auth.displayName !== u.uid)
+            ? auth.displayName
+            : (u.displayName || auth?.displayName || 'Member');
+        const entity = u.entity || '';
         const wallet = u.wallet || { balance: 0, currency: '₹', pendingBonds: 0 };
         const impact = u.impact || { co2Saved: 0, transactions: 0, weightRescued: 0 };
         const isVerified = u.verified === true;
@@ -456,12 +485,19 @@ export class ProfileScreen {
     async onActivate() {
         this.user = FirebaseAuth.getCurrentUser?.() || window.App?.currentUser;
 
-        // Use cached global profile or fetch fresh
-        const globalProfile = window.App?.currentUserProfile;
-        if (globalProfile && globalProfile.uid) {
-            this.profile = globalProfile;
-        } else if (this.user?.uid) {
-            this.profile = await FirebaseDB.getUserProfile(this.user.uid).catch(() => null);
+        // Show skeleton immediately while we fetch real data
+        if (!this.profile) this._renderSkeleton();
+
+        // Always fetch fresh from Firestore (don't rely solely on cache)
+        if (this.user?.uid) {
+            const fresh = await FirebaseDB.getUserProfile(this.user.uid).catch(() => null);
+            if (fresh) {
+                this.profile = fresh;
+                if (window.App) window.App.currentUserProfile = fresh;
+            } else if (window.App?.currentUserProfile?.uid) {
+                // Fall back to cached profile if Firestore fetch failed
+                this.profile = window.App.currentUserProfile;
+            }
         }
 
         // Fetch user's listings
@@ -469,10 +505,10 @@ export class ProfileScreen {
             this.listings = await FirebaseDB.getMyListings(this.user.uid).catch(() => []);
         }
 
-        // Render with current data
+        // Render with real data
         this.render(this.profile);
 
-        // Subscribe to real-time profile changes
+        // Subscribe to real-time profile changes (picks up writes from Settings save)
         if (this._unsubscribe) this._unsubscribe();
         if (this.user?.uid) {
             this._unsubscribe = FirebaseDB.listenToUserProfile(this.user.uid, (live) => {
