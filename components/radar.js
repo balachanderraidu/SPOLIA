@@ -18,6 +18,7 @@ export class RadarScreen {
       </div>
     `;
     this._bindFilters();
+    this._bindNotif();
   }
 
   onActivate() {
@@ -66,6 +67,11 @@ export class RadarScreen {
             ${c.label}
           </button>`).join('')}
       </nav>`;
+  }
+
+  _bindNotif() {
+    this.el.querySelector('#notif-btn')?.addEventListener('click', () =>
+      window.showToast?.('Notifications coming soon', 'info'));
   }
 
   _bindFilters() {

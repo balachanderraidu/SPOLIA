@@ -226,12 +226,228 @@ export class ProfileScreen {
         });
 
         this.el.querySelector('#settings-btn')?.addEventListener('click', () =>
-            window.showToast?.('App settings coming soon', 'info'));
+            this._openSettings());
 
         this.el.querySelector('#signout-btn')?.addEventListener('click', async () => {
             if (confirm('Sign out of Spolia?')) {
                 if (this._unsubscribe) { this._unsubscribe(); this._unsubscribe = null; }
                 // window.signOut() is defined in app.js — it signs out AND redirects to login
+                await window.signOut?.();
+            }
+        });
+    }
+
+    _openSettings() {
+        const u = this.profile || {};
+        const auth = this.user;
+        const roleInfo = ROLE_MAP[u.role] || null;
+
+        // Remove any existing settings sheet
+        document.getElementById('settings-sheet-overlay')?.remove();
+
+        const overlay = document.createElement('div');
+        overlay.id = 'settings-sheet-overlay';
+        overlay.style.cssText = `
+          position:fixed;inset:0;z-index:600;
+          background:rgba(0,0,0,0.65);backdrop-filter:blur(4px);
+          display:flex;align-items:flex-end;justify-content:center;
+          animation:fadeIn 200ms ease;
+        `;
+
+        overlay.innerHTML = `
+          <style>
+            @keyframes slideUp   { from { transform:translateY(100%) } to { transform:translateY(0) } }
+            @keyframes fadeIn    { from { opacity:0 } to { opacity:1 } }
+            @keyframes slideDown { from { transform:translateY(0) } to { transform:translateY(100%) } }
+          </style>
+          <div id="settings-sheet" style="
+            width:100%;max-width:480px;
+            background:#111;border-top:1px solid #2A2A2A;
+            border-radius:24px 24px 0 0;padding-bottom:env(safe-area-inset-bottom,16px);
+            animation:slideUp 300ms cubic-bezier(0.32,0.72,0,1);
+            max-height:90vh;overflow-y:auto;
+          ">
+            <!-- Handle -->
+            <div style="width:40px;height:4px;background:#333;border-radius:2px;margin:12px auto 0;"></div>
+
+            <!-- Header -->
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px 12px">
+              <h2 style="font:700 18px/1 'Playfair Display',Georgia,serif;color:#FFD700">Settings</h2>
+              <button id="settings-close" aria-label="Close settings"
+                style="width:32px;height:32px;border-radius:50%;background:#1A1A1A;border:1px solid #2A2A2A;
+                  display:flex;align-items:center;justify-content:center;cursor:pointer;color:#A09882;font-size:16px">
+                ✕
+              </button>
+            </div>
+
+            <!-- Edit Profile -->
+            <div style="padding:0 20px 4px">
+              <div style="font:600 11px/1 Inter,sans-serif;color:#5C5647;letter-spacing:0.1em;text-transform:uppercase;margin-bottom:12px">Edit Profile</div>
+
+              <div style="margin-bottom:12px">
+                <label style="font:500 12px/1 Inter,sans-serif;color:#A09882;display:block;margin-bottom:6px">Display Name</label>
+                <input id="settings-name" type="text"
+                  value="${(auth?.displayName || u.displayName || '').replace(/"/g,'&quot;')}"
+                  style="width:100%;box-sizing:border-box;height:44px;background:#1A1A1A;border:1px solid #2A2A2A;
+                    border-radius:12px;padding:0 14px;color:#F5F0E8;font:400 14px/1 Inter,sans-serif;
+                    outline:none;caret-color:#FFD700"
+                  placeholder="Your full name">
+              </div>
+
+              <div style="margin-bottom:16px">
+                <label style="font:500 12px/1 Inter,sans-serif;color:#A09882;display:block;margin-bottom:6px">Entity / Firm</label>
+                <input id="settings-entity" type="text"
+                  value="${(u.entity || '').replace(/"/g,'&quot;')}"
+                  style="width:100%;box-sizing:border-box;height:44px;background:#1A1A1A;border:1px solid #2A2A2A;
+                    border-radius:12px;padding:0 14px;color:#F5F0E8;font:400 14px/1 Inter,sans-serif;
+                    outline:none;caret-color:#FFD700"
+                  placeholder="e.g. Peroneira Designs">
+              </div>
+
+              <button id="settings-save"
+                style="width:100%;height:44px;border-radius:12px;background:#FFD700;border:none;
+                  color:#0D0D0D;font:700 14px/1 Inter,sans-serif;cursor:pointer;margin-bottom:20px;
+                  transition:opacity 150ms">
+                Save Changes
+              </button>
+            </div>
+
+            <!-- Divider -->
+            <div style="height:1px;background:#1A1A1A;margin:0 20px"></div>
+
+            <!-- Your Role -->
+            <div style="padding:16px 20px">
+              <div style="font:600 11px/1 Inter,sans-serif;color:#5C5647;letter-spacing:0.1em;text-transform:uppercase;margin-bottom:12px">Your Role</div>
+              <div style="display:flex;align-items:center;gap:10px;background:#1A1A1A;
+                border:1px solid #2A2A2A;border-radius:12px;padding:12px 14px">
+                <span style="font-size:22px">${roleInfo?.icon || '👤'}</span>
+                <div>
+                  <div style="font:600 14px/1 Inter,sans-serif;color:#F5F0E8">${roleInfo?.label || 'Member'}</div>
+                  ${u.credentialNumber ? `<div style="font:400 12px/1 Inter,sans-serif;color:#5C5647;margin-top:3px">${u.credentialNumber}</div>` : ''}
+                </div>
+              </div>
+              <div style="font:400 11px/1.4 Inter,sans-serif;color:#3A3A3A;margin-top:8px">To change your role or credential, contact support.</div>
+            </div>
+
+            <!-- Divider -->
+            <div style="height:1px;background:#1A1A1A;margin:0 20px"></div>
+
+            <!-- App Info -->
+            <div style="padding:16px 20px">
+              <div style="font:600 11px/1 Inter,sans-serif;color:#5C5647;letter-spacing:0.1em;text-transform:uppercase;margin-bottom:12px">App Info</div>
+              <div style="background:#1A1A1A;border:1px solid #2A2A2A;border-radius:16px;overflow:hidden">
+                <div style="display:flex;align-items:center;justify-content:space-between;
+                  padding:14px 16px;border-bottom:1px solid #222">
+                  <span style="font:400 14px/1 Inter,sans-serif;color:#A09882">Version</span>
+                  <span style="font:600 13px/1 Inter,sans-serif;color:#5C5647">Spolia v1.0 Beta</span>
+                </div>
+                <button id="settings-support"
+                  style="width:100%;display:flex;align-items:center;justify-content:space-between;
+                    padding:14px 16px;background:none;border:none;border-bottom:1px solid #222;
+                    color:#F5F0E8;font:400 14px/1 Inter,sans-serif;cursor:pointer">
+                  <span>Help &amp; Support</span>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#3A3A3A" stroke-width="2.5"><path d="M9 18l6-6-6-6"/></svg>
+                </button>
+                <button id="settings-privacy"
+                  style="width:100%;display:flex;align-items:center;justify-content:space-between;
+                    padding:14px 16px;background:none;border:none;
+                    color:#F5F0E8;font:400 14px/1 Inter,sans-serif;cursor:pointer">
+                  <span>Privacy Policy</span>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#3A3A3A" stroke-width="2.5"><path d="M9 18l6-6-6-6"/></svg>
+                </button>
+              </div>
+            </div>
+
+            <!-- Divider -->
+            <div style="height:1px;background:#1A1A1A;margin:0 20px"></div>
+
+            <!-- Sign Out -->
+            <div style="padding:16px 20px 8px">
+              <button id="settings-signout"
+                style="width:100%;height:48px;border-radius:12px;background:rgba(224,92,92,0.08);
+                  border:1px solid rgba(224,92,92,0.25);
+                  color:#E05C5C;font:600 14px/1 Inter,sans-serif;cursor:pointer">
+                🚪 Sign Out
+              </button>
+            </div>
+          </div>
+        `;
+
+        document.body.appendChild(overlay);
+
+        // Focus first input
+        setTimeout(() => overlay.querySelector('#settings-name')?.focus(), 350);
+
+        const close = (animate = true) => {
+            if (!animate) { overlay.remove(); return; }
+            const sheet = overlay.querySelector('#settings-sheet');
+            if (sheet) {
+                sheet.style.animation = 'slideDown 250ms cubic-bezier(0.32,0.72,0,1) forwards';
+            }
+            overlay.style.animation = 'fadeIn 200ms ease reverse forwards';
+            setTimeout(() => overlay.remove(), 250);
+        };
+
+        // Close on backdrop click
+        overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
+        overlay.querySelector('#settings-close')?.addEventListener('click', () => close());
+
+        // Save Changes
+        overlay.querySelector('#settings-save')?.addEventListener('click', async () => {
+            const nameVal = overlay.querySelector('#settings-name')?.value?.trim();
+            const entityVal = overlay.querySelector('#settings-entity')?.value?.trim();
+
+            if (!nameVal) { window.showToast?.('Display name cannot be empty', 'error'); return; }
+
+            const saveBtn = overlay.querySelector('#settings-save');
+            if (saveBtn) { saveBtn.textContent = 'Saving...'; saveBtn.disabled = true; }
+
+            try {
+                const uid = this.user?.uid || window.App?.currentUser?.uid;
+                if (uid) {
+                    await FirebaseDB.upsertUserProfile(uid, {
+                        displayName: nameVal,
+                        entity: entityVal || ''
+                    });
+                    // Update auth display name if changed
+                    if (nameVal !== auth?.displayName && FirebaseAuth.updateProfile) {
+                        await FirebaseAuth.updateProfile({ displayName: nameVal }).catch(() => {});
+                    }
+                    // Update local cache
+                    if (window.App?.currentUserProfile) {
+                        window.App.currentUserProfile.displayName = nameVal;
+                        window.App.currentUserProfile.entity = entityVal || '';
+                    }
+                    if (this.profile) {
+                        this.profile.displayName = nameVal;
+                        this.profile.entity = entityVal || '';
+                    }
+                }
+                window.showToast?.('Profile updated ✓', 'success');
+                close();
+            } catch (err) {
+                console.error('[Settings] Save failed:', err);
+                window.showToast?.('Save failed. Try again.', 'error');
+                if (saveBtn) { saveBtn.textContent = 'Save Changes'; saveBtn.disabled = false; }
+            }
+        });
+
+        // Support
+        overlay.querySelector('#settings-support')?.addEventListener('click', () => {
+            navigator.clipboard?.writeText('support@spolia.in')
+                .then(() => window.showToast?.('support@spolia.in copied!', 'success'))
+                .catch(() => window.showToast?.('Contact support@spolia.in', 'info'));
+        });
+
+        // Privacy
+        overlay.querySelector('#settings-privacy')?.addEventListener('click', () =>
+            window.showToast?.('Privacy policy coming soon', 'info'));
+
+        // Sign out from settings
+        overlay.querySelector('#settings-signout')?.addEventListener('click', async () => {
+            if (confirm('Sign out of Spolia?')) {
+                close(false);
+                if (this._unsubscribe) { this._unsubscribe(); this._unsubscribe = null; }
                 await window.signOut?.();
             }
         });
