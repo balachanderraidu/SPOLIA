@@ -5,8 +5,10 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
 import { getAnalytics } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-analytics.js";
 import {
-    getAuth, GoogleAuthProvider,
+    getAuth, GoogleAuthProvider, PhoneAuthProvider,
     signInWithPopup, signInWithRedirect, getRedirectResult,
+    signInWithPhoneNumber, linkWithCredential,
+    RecaptchaVerifier,
     signOut as firebaseSignOut, onAuthStateChanged as firebaseOnAuthStateChanged
 } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
 import {
@@ -38,7 +40,16 @@ const storage = getStorage(firebaseApp);
 // ──────────────────────────────────────────────────────────────────
 // Firebase Authentication — REAL SDK CALLS
 // ──────────────────────────────────────────────────────────────────
+
+// Module-level state — only ONE RecaptchaVerifier is allowed at a time.
+// Keeping these outside the object prevents the "reCAPTCHA has already been rendered"
+// error that plagued the previous implementation.
+let _recaptchaVerifier = null;
+let _confirmationResult = null;
+
 const FirebaseAuth = {
+
+    // ── Google Sign-In (popup with redirect fallback) ─────────────
     signInWithGoogle: async () => {
         const provider = new GoogleAuthProvider();
         provider.setCustomParameters({ prompt: 'select_account' });
@@ -54,7 +65,91 @@ const FirebaseAuth = {
         }
     },
 
-    getRedirectResult: async () => getRedirectResult(auth),
+    // ── Consume a pending Google redirect result ──────────────────
+    // MUST be called once on every page load before the auth state listener.
+    // If signInWithRedirect was triggered on the previous page, this resolves it.
+    handleRedirectResult: async () => {
+        try {
+            const result = await getRedirectResult(auth);
+            if (result?.user) {
+                console.log('[FirebaseAuth] Redirect result resolved:', result.user.uid);
+            }
+            return result;
+        } catch (err) {
+            // auth/credential-already-in-use is normal — user already signed in.
+            if (err.code !== 'auth/credential-already-in-use') {
+                console.warn('[FirebaseAuth] handleRedirectResult error:', err.code, err.message);
+            }
+            return null;
+        }
+    },
+
+    // ── Phone OTP: Send ───────────────────────────────────────────
+    // Creates (or re-creates) an invisible RecaptchaVerifier, then sends OTP.
+    // phone must be E.164 format, e.g. "+919876543210"
+    sendOTP: async (phone) => {
+        // Destroy any existing verifier before creating a new one.
+        // This is the fix for "reCAPTCHA has already been rendered in this element".
+        try {
+            if (_recaptchaVerifier) {
+                _recaptchaVerifier.clear();
+                _recaptchaVerifier = null;
+            }
+        } catch (_) { /* ignore cleanup errors */ }
+
+        _recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
+            size: 'invisible',
+            callback: () => { /* reCAPTCHA solved — sendOTP will auto-continue */ }
+        });
+
+        try {
+            _confirmationResult = await signInWithPhoneNumber(auth, phone, _recaptchaVerifier);
+            console.log('[FirebaseAuth] OTP sent to', phone);
+        } catch (err) {
+            // Clean up verifier on failure so next attempt starts fresh
+            try { _recaptchaVerifier.clear(); } catch (_) {}
+            _recaptchaVerifier = null;
+            _confirmationResult = null;
+            throw err;
+        }
+    },
+
+    // ── Phone OTP: Confirm (sign-in with phone only) ──────────────
+    confirmOTP: async (code) => {
+        if (!_confirmationResult) throw new Error('No pending OTP. Please request a new code.');
+        const result = await _confirmationResult.confirm(code);
+        _confirmationResult = null;
+        return result;
+    },
+
+    // ── Phone OTP: Link (add phone to an existing Google account) ─
+    // Called when a user is already signed in with Google and wants to
+    // also verify their phone number. Results in a single unified account.
+    linkPhone: async (code) => {
+        if (!_confirmationResult) throw new Error('No pending OTP. Please request a new code.');
+        const credential = PhoneAuthProvider.credentialFromResult(_confirmationResult);
+        // If confirmResult is not a PhoneAuthProvider result, construct credential manually
+        const phoneCredential = credential || PhoneAuthProvider.credential(
+            _confirmationResult.verificationId, code
+        );
+        // Actually, we call confirm() which gives us the user directly:
+        // For linking we need to use linkWithCredential
+        const verificationId = _confirmationResult.verificationId;
+        const phoneAuthCredential = PhoneAuthProvider.credential(verificationId, code);
+        _confirmationResult = null;
+        return await linkWithCredential(auth.currentUser, phoneAuthCredential);
+    },
+
+    // ── Cleanup reCAPTCHA (call from onActivate when returning to login) ─
+    resetRecaptcha: () => {
+        try {
+            if (_recaptchaVerifier) {
+                _recaptchaVerifier.clear();
+                _recaptchaVerifier = null;
+            }
+            _confirmationResult = null;
+        } catch (_) { /* ignore */ }
+    },
 
     signOut: async () => firebaseSignOut(auth),
 
@@ -190,12 +285,17 @@ const FirebaseDB = {
                 });
             } else {
                 // Existing user — only update basic auth fields (don't clobber onboardingComplete etc.)
-                await updateDoc(userRef, {
+                const updates = {
                     displayName: profileData.displayName || snap.data().displayName || '',
                     email: profileData.email || snap.data().email || '',
                     photoURL: profileData.photoURL || snap.data().photoURL || null,
                     lastSeenAt: serverTimestamp()
-                });
+                };
+                // Only store phoneNumber if it's actually present (phone auth users)
+                if (profileData.phoneNumber) {
+                    updates.phoneNumber = profileData.phoneNumber;
+                }
+                await updateDoc(userRef, updates);
             }
         } catch (err) {
             console.warn("[FirebaseDB] upsertUserProfile error:", err);

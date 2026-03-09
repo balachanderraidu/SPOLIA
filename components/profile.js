@@ -228,12 +228,11 @@ export class ProfileScreen {
         this.el.querySelector('#settings-btn')?.addEventListener('click', () =>
             window.showToast?.('App settings coming soon', 'info'));
 
-        this.el.querySelector('#signout-btn')?.addEventListener('click', () => {
+        this.el.querySelector('#signout-btn')?.addEventListener('click', async () => {
             if (confirm('Sign out of Spolia?')) {
-                if (this._unsubscribe) this._unsubscribe();
-                FirebaseAuth.signOut()
-                    .then(() => window.showToast?.('Signed out', 'info'))
-                    .catch(() => window.navigate?.('login'));
+                if (this._unsubscribe) { this._unsubscribe(); this._unsubscribe = null; }
+                // window.signOut() is defined in app.js — it signs out AND redirects to login
+                await window.signOut?.();
             }
         });
     }

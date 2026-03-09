@@ -349,5 +349,7 @@ export class LoginScreen {
     onActivate() {
         // Reset to main view if coming back from elsewhere
         if (this._view !== 'main') this._renderMain();
+        // Clean up any stale reCAPTCHA verifier from a previous OTP attempt
+        FirebaseAuth.resetRecaptcha?.();
     }
 }

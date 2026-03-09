@@ -20,30 +20,35 @@ function isDemoMode() {
 const DEMO_MODE = isDemoMode();
 
 import { FirebaseAuth, FirebaseDB, MOCK_USER_PROFILE } from './firebase-config.js';
-import { RadarScreen } from './components/radar.js';
-import { ScannerScreen } from './components/scanner.js';
-import { ImpactScreen } from './components/impact.js';
-import { VendorsScreen } from './components/vendors.js';
-import { ToolsScreen } from './components/tools.js';
-import { ProfileScreen } from './components/profile.js';
+import { LoginScreen }        from './components/login.js';
+import { OnboardingScreen }   from './components/onboarding.js';
+import { RadarScreen }        from './components/radar.js';
+import { ScannerScreen }      from './components/scanner.js';
+import { ImpactScreen }       from './components/impact.js';
+import { VendorsScreen }      from './components/vendors.js';
+import { ToolsScreen }        from './components/tools.js';
+import { ProfileScreen }      from './components/profile.js';
 import { MaterialDetailScreen } from './components/material-detail.js';
-import { DisputeScreen } from './components/dispute.js';
-import { LogisticsScreen } from './components/logistics.js';
-
+import { DisputeScreen }      from './components/dispute.js';
+import { LogisticsScreen }    from './components/logistics.js';
 import { ListingCreateScreen } from './components/listing-create.js';
 
 
 // ── App State ──────────────────────────────────────────────────────
 const App = {
-    currentRoute: 'radar',
+    currentRoute: null,
     previousRoute: null,
     currentUser: null,
     currentUserProfile: null,
-    isAuthenticated: true,      // No auth gate — app is open
-    isInitialized: true,
+    isAuthenticated: false,
+    isInitialized: false,
     screenInstances: {},
 
     routes: {
+        // ── Public / Auth routes (no nav bar) ──────────────────────
+        login:      { title: 'Sign In',    component: LoginScreen,      public: true, hideNav: true },
+        onboarding: { title: 'Onboarding', component: OnboardingScreen, public: true, hideNav: true },
+        // ── Protected routes (require auth) ────────────────────────
         radar:             { title: 'The Radar',      component: RadarScreen },
         scanner:           { title: 'AI Scanner',     component: ScannerScreen },
         impact:            { title: 'Impact',          component: ImpactScreen },
@@ -66,14 +71,20 @@ export function navigate(routeName, params = {}) {
         return;
     }
 
-    // Auth guard
+    // Auth guard — redirect to login if not authenticated and route is not public
     if (!route.public && !App.isAuthenticated) {
-        console.log('[Router] Not authenticated — redirecting to login');
-        navigate('login');
+        // Don't call navigate('login') recursively here — use direct DOM ops
+        _activateScreen('login', {});
         return;
     }
 
     if (routeName === App.currentRoute) return;
+    _activateScreen(routeName, params);
+}
+
+function _activateScreen(routeName, params = {}) {
+    const route = App.routes[routeName];
+    if (!route) return;
 
     const prev = document.querySelector('.screen.active');
     if (prev) {
@@ -104,6 +115,7 @@ export function navigate(routeName, params = {}) {
     if (route) document.title = `${route.title} — Spolia`;
 }
 
+
 // ── Toast System ──────────────────────────────────────────────────
 export function showToast(message, type = 'info', duration = 3500) {
     const container = document.getElementById('toast-container');
@@ -120,6 +132,24 @@ export function showToast(message, type = 'info', duration = 3500) {
         setTimeout(() => toast.remove(), 300);
     }, duration);
 }
+
+// ── Sign Out ──────────────────────────────────────────────────────
+export async function signOut() {
+    try {
+        await FirebaseAuth.signOut();
+        App.currentUser = null;
+        App.currentUserProfile = null;
+        App.isAuthenticated = false;
+        // Reset demo mode on sign out
+        try { sessionStorage.removeItem('spolia_demo'); } catch (_) {}
+        navigate('login');
+        showToast('Signed out successfully', 'info');
+    } catch (err) {
+        console.error('[App] Sign-out error:', err);
+        showToast('Sign-out failed. Please try again.', 'error');
+    }
+}
+window.signOut = signOut;
 
 // ── PWA Install Prompt ────────────────────────────────────────────
 let deferredInstallPrompt = null;
@@ -195,17 +225,71 @@ function buildNav() {
     });
 }
 
+// ── Auth State Machine ────────────────────────────────────────────
+// This is the single source of truth for navigation decisions.
+// It fires once on page load and again whenever auth state changes.
+function setupAuthStateListener() {
+    FirebaseAuth.onAuthStateChanged(async (user) => {
+        if (!user) {
+            // Not signed in — show login
+            App.currentUser = null;
+            App.currentUserProfile = null;
+            App.isAuthenticated = false;
+            _activateScreen('login', {});
+            return;
+        }
+
+        // User is signed in
+        App.currentUser = user;
+        App.isAuthenticated = true;
+
+        // Demo mode bypasses profile check — go straight to radar
+        if (DEMO_MODE) {
+            App.currentUserProfile = MOCK_USER_PROFILE;
+            _activateScreen('radar', {});
+            return;
+        }
+
+        // Silently upsert the basic auth profile (displayName, email, photoURL)
+        try {
+            await FirebaseDB.upsertUserProfile(user.uid, {
+                displayName: user.displayName || '',
+                email: user.email || '',
+                photoURL: user.photoURL || null,
+                phoneNumber: user.phoneNumber || null
+            });
+        } catch (_) { /* non-critical */ }
+
+        // Determine where to route based on onboarding completion
+        try {
+            const profile = await FirebaseDB.getUserProfile(user.uid);
+            App.currentUserProfile = profile;
+
+            if (!profile || !profile.onboardingComplete) {
+                // New user or incomplete onboarding — collect role & credentials
+                _activateScreen('onboarding', {});
+            } else {
+                // Fully onboarded — go to the app
+                _activateScreen('radar', {});
+            }
+        } catch (err) {
+            console.warn('[App] Profile fetch failed — routing to radar anyway:', err);
+            _activateScreen('radar', {});
+        }
+    });
+}
+
 // ── Initialize App ────────────────────────────────────────────────
 async function init() {
     await registerServiceWorker();
     FirebaseDB.initPlatformStats().catch(() => {});
 
-    // Build all screens into the DOM
+    // Build all screens into the DOM (hidden initially)
     const appEl = document.getElementById('app');
     Object.keys(App.routes).forEach(route => {
         const screen = document.createElement('div');
         screen.id = `screen-${route}`;
-        screen.className = `screen ${route === 'radar' ? 'active' : ''}`;
+        screen.className = 'screen'; // none are active yet — auth state decides
         appEl.appendChild(screen);
         const ComponentClass = App.routes[route].component;
         const instance = new ComponentClass(screen);
@@ -214,38 +298,23 @@ async function init() {
     });
 
     buildNav();
+    // Initially hide the nav until we know auth state
+    document.getElementById('bottom-nav').style.display = 'none';
+
     window.navigate = navigate;
     window.showToast = showToast;
     window.App = App;
 
-    // Boot straight to radar — no auth gate
-    document.getElementById('bottom-nav').style.display = '';
-    App.currentRoute = 'radar';
-    document.title = 'The Radar — Spolia';
+    // STEP 1: Consume any pending redirect result from Google Sign-In.
+    // This MUST happen before the auth state listener fires.
+    // If signInWithRedirect was used on a previous page load, this resolves it.
+    await FirebaseAuth.handleRedirectResult();
 
-    // Silently resolve auth in the background.
-    // If the user is signed in, populate App.currentUser so profile/listing
-    // features work — but NEVER redirect to login.
-    FirebaseAuth.onAuthStateChanged(async (user) => {
-        if (user) {
-            App.currentUser = user;
-            App.isAuthenticated = true;
-            // Silently sync profile without redirecting
-            try {
-                await FirebaseDB.upsertUserProfile(user.uid, {
-                    displayName: user.displayName || '',
-                    email: user.email || '',
-                    photoURL: user.photoURL || null
-                });
-                App.currentUserProfile = await FirebaseDB.getUserProfile(user.uid);
-            } catch (_) {}
-        } else {
-            App.currentUser = null;
-            App.currentUserProfile = null;
-            App.isAuthenticated = false;
-            // No redirect — stay wherever the user is
-        }
-    });
+    // STEP 2: Set up the auth state listener — this is the router's single
+    // source of truth. It fires immediately with the current user (or null).
+    setupAuthStateListener();
+
+    App.isInitialized = true;
 }
 
 // ── SVG Icons ─────────────────────────────────────────────────────
