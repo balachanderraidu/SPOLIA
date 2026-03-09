@@ -482,60 +482,59 @@ export class ProfileScreen {
         });
     }
 
-    async onActivate() {
+    onActivate() {
+        // STEP 1: Get auth user synchronously — always set after login
         this.user = FirebaseAuth.getCurrentUser?.() || window.App?.currentUser;
+        const authUser = this.user;
 
-        // Show skeleton immediately while we fetch real data
-        if (!this.profile) this._renderSkeleton();
-
-        if (this.user?.uid) {
-            // Try Firestore first
-            let fresh = await FirebaseDB.getUserProfile(this.user.uid).catch(() => null);
-
-            if (fresh) {
-                this.profile = fresh;
-                if (window.App) window.App.currentUserProfile = fresh;
-            } else if (window.App?.currentUserProfile?.uid) {
-                // Use cached profile if available
-                this.profile = window.App.currentUserProfile;
-            } else {
-                // No Firestore doc — build minimal profile from Auth object
-                // This can happen if the doc write failed or hasn't propagated yet.
-                this.profile = {
-                    uid: this.user.uid,
-                    displayName: this.user.displayName || 'Professional',
-                    email: this.user.email || '',
-                    phoneNumber: this.user.phoneNumber || '',
-                    photoURL: this.user.photoURL || null,
-                    role: null,
-                    verified: false,
-                    onboardingComplete: false,
-                    wallet: { balance: 0, currency: '₹', pendingBonds: 0 },
-                    impact: { co2Saved: 0, transactions: 0, weightRescued: 0 }
-                };
-                // Create the missing doc so future reads work
-                FirebaseDB.upsertUserProfile(this.user.uid, this.profile).catch(console.warn);
-            }
+        // STEP 2: Render IMMEDIATELY from whatever we have right now (no await).
+        // Firebase Auth user is available synchronously — no need to wait for Firestore.
+        if (authUser && !this.profile) {
+            const cached = window.App?.currentUserProfile;
+            this.profile = (cached?.uid) ? cached : {
+                uid:              authUser.uid,
+                displayName:      authUser.displayName || 'Professional',
+                email:            authUser.email       || '',
+                phoneNumber:      authUser.phoneNumber  || '',
+                photoURL:         authUser.photoURL     || null,
+                role:             null,
+                verified:         false,
+                onboardingComplete: false,
+                wallet:  { balance: 0, currency: '₹', pendingBonds: 0 },
+                impact:  { co2Saved: 0, transactions: 0, weightRescued: 0 }
+            };
         }
+        this.render(this.profile);   // instant, sync — no skeleton if we have auth
 
-        // Fetch user's listings
-        if (this.user?.uid) {
-            this.listings = await FirebaseDB.getMyListings(this.user.uid).catch(() => []);
-        }
+        if (!authUser?.uid) return;  // not signed in, nothing more to do
 
-        // Render with real data (or auth-derived profile)
-        this.render(this.profile);
-
-        // Subscribe to real-time profile changes
-        if (this._unsubscribe) this._unsubscribe();
-        if (this.user?.uid) {
-            this._unsubscribe = FirebaseDB.listenToUserProfile(this.user.uid, (live) => {
-                if (live) {
-                    this.profile = live;
-                    if (window.App) window.App.currentUserProfile = live;
-                    this.render(live);
+        // STEP 3: Fetch Firestore data in background — update view when it arrives
+        FirebaseDB.getUserProfile(authUser.uid)
+            .then(fresh => {
+                if (fresh?.uid) {
+                    this.profile = fresh;
+                    if (window.App) window.App.currentUserProfile = fresh;
+                    this.render(this.profile);
+                } else {
+                    // Doc missing — create it silently
+                    FirebaseDB.upsertUserProfile(authUser.uid, this.profile).catch(() => {});
                 }
-            });
-        }
+            })
+            .catch(() => {});  // already rendered from auth data — ignore errors
+
+        // STEP 4: Fetch listings in background
+        FirebaseDB.getMyListings(authUser.uid)
+            .then(l => { this.listings = l || []; this.render(this.profile); })
+            .catch(() => {});
+
+        // STEP 5: Subscribe to real-time profile changes
+        if (this._unsubscribe) this._unsubscribe();
+        this._unsubscribe = FirebaseDB.listenToUserProfile(authUser.uid, (live) => {
+            if (live?.uid) {
+                this.profile = live;
+                if (window.App) window.App.currentUserProfile = live;
+                this.render(live);
+            }
+        });
     }
 }
