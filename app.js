@@ -183,13 +183,7 @@ export function triggerInstall() {
 }
 window.triggerInstall = triggerInstall;
 
-// Wire install button via JS (more reliable than inline onclick)
-document.addEventListener('DOMContentLoaded', () => {
-    document.getElementById('install-btn')?.addEventListener('click', triggerInstall);
-    document.getElementById('install-dismiss')?.addEventListener('click', () => {
-        document.getElementById('install-banner')?.setAttribute('hidden', '');
-    });
-});
+
 
 // ── Service Worker Registration ────────────────────────────────────
 async function registerServiceWorker() {
@@ -312,6 +306,13 @@ async function init() {
     buildNav();
     // Initially hide the nav until we know auth state
     document.getElementById('bottom-nav').style.display = 'none';
+
+    // Wire the PWA install banner buttons
+    // (must be in init() not DOMContentLoaded because app.js is dynamically imported)
+    document.getElementById('install-btn')?.addEventListener('click', triggerInstall);
+    document.getElementById('install-dismiss')?.addEventListener('click', () => {
+        document.getElementById('install-banner')?.setAttribute('hidden', '');
+    });
 
     window.navigate = navigate;
     window.showToast = showToast;
