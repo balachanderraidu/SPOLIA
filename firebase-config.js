@@ -318,14 +318,17 @@ const FirebaseDB = {
      */
     submitVerificationApplication: async (uid, { role, credentialNumber, docUrl }) => {
         try {
-            // Update user doc
+            // Update user doc — mark onboardingComplete: true so the user
+            // is routed to Radar on next load instead of back to onboarding.
+            // verificationStatus stays 'pending' until admin approves the credential.
             await updateDoc(doc(db, "users", uid), {
                 role,
                 credentialNumber,
                 verificationDocUrl: docUrl || null,
-                onboardingComplete: false, // false = pending review
+                onboardingComplete: true,      // ← CRITICAL: gates radar access
                 verificationSubmittedAt: serverTimestamp(),
-                verificationStatus: "pending"
+                verificationStatus: "pending",
+                verified: false                // admin sets this to true after review
             });
 
             // Also record in a verification queue collection for admin review

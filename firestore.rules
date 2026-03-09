@@ -1,0 +1,55 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── Users ──────────────────────────────────────────────────────
+    // Each user can read and write their own profile doc.
+    // Admins can read all user docs (future admin panel).
+    match /users/{uid} {
+      allow read: if request.auth != null && request.auth.uid == uid;
+      allow write: if request.auth != null && request.auth.uid == uid;
+    }
+
+    // ── Listings ───────────────────────────────────────────────────
+    // Anyone authenticated can read listings.
+    // Only the owner can create/update/delete their listing.
+    match /listings/{listingId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null;
+      allow update, delete: if request.auth != null
+        && request.auth.uid == resource.data.uid;
+    }
+
+    // ── Bonds ─────────────────────────────────────────────────────
+    // Auth users can read bonds they are party to, and create new ones.
+    match /bonds/{bondId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null;
+      allow update: if request.auth != null
+        && (request.auth.uid == resource.data.buyerUid
+         || request.auth.uid == resource.data.sellerUid);
+    }
+
+    // ── Disputes ──────────────────────────────────────────────────
+    match /disputes/{disputeId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null;
+    }
+
+    // ── Verification Requests ─────────────────────────────────────
+    // Any authenticated user can create a verification request.
+    // Only they can read their own.
+    match /verificationRequests/{reqId} {
+      allow create: if request.auth != null;
+      allow read: if request.auth != null
+        && request.auth.uid == resource.data.uid;
+    }
+
+    // ── Platform Stats ────────────────────────────────────────────
+    // Anyone authenticated can read. Only backend (Cloud Functions) writes.
+    match /platformStats/{doc} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null; // Tighten this when Cloud Functions are set up
+    }
+  }
+}
