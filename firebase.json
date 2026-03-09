@@ -2,6 +2,10 @@
   "firestore": {
     "rules": "firestore.rules"
   },
+  "storage": {
+    "rules": "storage.rules",
+    "bucket": "spolia-c42ab.firebasestorage.app"
+  },
   "hosting": {
     "public": ".",
     "ignore": [
