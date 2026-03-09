@@ -168,7 +168,11 @@ window.addEventListener('appinstalled', () => {
 });
 
 export function triggerInstall() {
-    if (!deferredInstallPrompt) return;
+    console.log('[PWA] triggerInstall called, deferredInstallPrompt:', deferredInstallPrompt);
+    if (!deferredInstallPrompt) {
+        window.showToast?.('Open this site in Chrome/Edge on mobile to install', 'info');
+        return;
+    }
     deferredInstallPrompt.prompt();
     deferredInstallPrompt.userChoice.then((choice) => {
         console.log('[PWA] User choice:', choice.outcome);
@@ -178,6 +182,14 @@ export function triggerInstall() {
     });
 }
 window.triggerInstall = triggerInstall;
+
+// Wire install button via JS (more reliable than inline onclick)
+document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('install-btn')?.addEventListener('click', triggerInstall);
+    document.getElementById('install-dismiss')?.addEventListener('click', () => {
+        document.getElementById('install-banner')?.setAttribute('hidden', '');
+    });
+});
 
 // ── Service Worker Registration ────────────────────────────────────
 async function registerServiceWorker() {
