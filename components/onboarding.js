@@ -89,6 +89,10 @@ export class OnboardingScreen {
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
         </button>
         <p style="font:400 11px/1.5 Inter,sans-serif;color:#3A3A3A;text-align:center;margin-top:14px">Verification takes 24 hours. Your data is never shared.</p>
+        <button id="signout-escape" style="background:none;border:none;margin-top:8px;cursor:pointer;
+          font:400 11px/1 Inter,sans-serif;color:#3A3A3A;display:block;width:100%;text-align:center">
+          Wrong account? Sign out →
+        </button>
       </div>`;
     }
 
@@ -215,6 +219,9 @@ export class OnboardingScreen {
                 this.step = 2;
                 this._rerender();
             });
+            this.el.querySelector('#signout-escape')?.addEventListener('click', async () => {
+                await window.signOut?.();
+            });
         }
 
         // Step 2: doc upload + submit
@@ -252,8 +259,16 @@ export class OnboardingScreen {
             const user = FirebaseAuth.getCurrentUser();
             let docUrl = null;
             if (this.docFile && user) {
-                try { docUrl = await FirebaseStorage.uploadCOADocument(this.docFile, user.uid); }
-                catch (e) { console.warn('[Onboarding] doc upload failed:', e); }
+                // Wrap upload in a 5-second timeout — if Storage rules aren't
+                // deployed or connectivity is slow, skip file and proceed.
+                const uploadWithTimeout = Promise.race([
+                    FirebaseStorage.uploadCOADocument(this.docFile, user.uid),
+                    new Promise((_, reject) =>
+                        setTimeout(() => reject(new Error('upload timeout')), 5000)
+                    )
+                ]);
+                try { docUrl = await uploadWithTimeout; }
+                catch (e) { console.warn('[Onboarding] doc upload skipped:', e.message); }
             }
             if (user) {
                 await FirebaseDB.submitVerificationApplication(user.uid, {
