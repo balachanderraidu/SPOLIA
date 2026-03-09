@@ -49,19 +49,29 @@ let _confirmationResult = null;
 
 const FirebaseAuth = {
 
-    // ── Google Sign-In (popup with redirect fallback) ─────────────
+    // ── Google Sign-In (popup ONLY — no redirect fallback) ───────
+    // NOTE: signInWithRedirect does NOT work on Netlify because Netlify
+    // doesn't serve Firebase's /__/auth/handler route. Popup is the only
+    // reliable method for non-Firebase-Hosting deployments.
     signInWithGoogle: async () => {
         const provider = new GoogleAuthProvider();
         provider.setCustomParameters({ prompt: 'select_account' });
         try {
             return await signInWithPopup(auth, provider);
-        } catch (popupErr) {
-            if (popupErr.code === 'auth/popup-blocked' ||
-                popupErr.code === 'auth/cancelled-popup-request' ||
-                popupErr.code === 'auth/popup-closed-by-user') {
-                return signInWithRedirect(auth, provider);
+        } catch (err) {
+            if (err.code === 'auth/popup-closed-by-user' ||
+                err.code === 'auth/cancelled-popup-request') {
+                // User dismissed the popup — not a real error
+                throw { code: 'auth/popup-dismissed', message: 'Sign-in cancelled.' };
             }
-            throw popupErr;
+            if (err.code === 'auth/popup-blocked') {
+                // Browser blocked the popup — give a clear actionable message
+                throw {
+                    code: 'auth/popup-blocked',
+                    message: 'Google sign-in popup was blocked. Please allow popups for spolia.peroneira.com in your browser settings, then try again.'
+                };
+            }
+            throw err;
         }
     },
 

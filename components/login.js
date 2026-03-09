@@ -238,14 +238,30 @@ export class LoginScreen {
             if (googleText) googleText.textContent = 'Opening Google…';
             try {
                 await FirebaseAuth.signInWithGoogle();
-                // If popup: auth state listener fires. If redirect: page reloads.
-                // Restore button in case popup is dismissed before auth:
+                // Success: onAuthStateChanged fires and routes the user automatically.
+                // Keep button disabled to prevent double-click while routing.
             } catch (err) {
-                console.error('[Login] Google sign-in failed:', err);
-                window.showToast?.('Sign-in failed. Try phone number instead.', 'error');
+                // Restore button in all error cases
                 googleBtn.disabled = false;
                 googleBtn.style.background = '#FFD700';
                 if (googleText) googleText.textContent = 'Sign in with Google';
+
+                if (err.code === 'auth/popup-dismissed') {
+                    // User closed the popup — silent restore, no toast needed
+                    return;
+                }
+                if (err.code === 'auth/popup-blocked') {
+                    window.showToast?.(
+                        '🔔 Popups blocked — tap the address bar, allow popups, then try again.',
+                        'error', 6000
+                    );
+                    return;
+                }
+                console.error('[Login] Google sign-in failed:', err);
+                window.showToast?.(
+                    err.message || 'Sign-in failed. Try phone number instead.',
+                    'error'
+                );
             }
         });
 
