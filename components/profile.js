@@ -171,9 +171,10 @@ export class ProfileScreen {
         </div>
         <div style="margin:0 16px;background:#1A1A1A;border:1px solid #2A2A2A;border-radius:20px;overflow:hidden;margin-bottom:32px">
           ${[
-              { id: 'docs-btn',    icon: '📄', label: 'Verification Documents' },
-              { id: 'notifs-btn',  icon: '🔔', label: 'Notification Preferences' },
-              { id: 'refer-btn',   icon: '👥', label: 'Refer a Colleague' },
+              { id: 'docs-btn',       icon: '📄', label: 'Verification Documents' },
+              { id: 'notifs-btn',     icon: '🔔', label: 'Notification Preferences' },
+              { id: 'refer-btn',      icon: '👥', label: 'Refer a Colleague' },
+              { id: 'install-app-btn',icon: '📲', label: 'Install Spolia App' },
           ].map((item, i) => `
             <button id="${item.id}" style="width:100%;display:flex;align-items:center;gap:14px;
               padding:16px 18px;background:none;border:none;border-bottom:1px solid #222;
@@ -252,6 +253,14 @@ export class ProfileScreen {
             navigator.clipboard?.writeText(url)
                 .then(() => window.showToast?.('Referral link copied!', 'success'))
                 .catch(() => window.showToast?.('Referral link copied!', 'info'));
+        });
+
+        this.el.querySelector('#install-app-btn')?.addEventListener('click', () => {
+            if (window.triggerInstall) {
+                window.triggerInstall();
+            } else {
+                window.showToast?.('To install: tap Share → "Add to Home Screen" in your browser', 'info');
+            }
         });
 
         this.el.querySelector('#settings-btn')?.addEventListener('click', () =>
