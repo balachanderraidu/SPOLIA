@@ -488,15 +488,33 @@ export class ProfileScreen {
         // Show skeleton immediately while we fetch real data
         if (!this.profile) this._renderSkeleton();
 
-        // Always fetch fresh from Firestore (don't rely solely on cache)
         if (this.user?.uid) {
-            const fresh = await FirebaseDB.getUserProfile(this.user.uid).catch(() => null);
+            // Try Firestore first
+            let fresh = await FirebaseDB.getUserProfile(this.user.uid).catch(() => null);
+
             if (fresh) {
                 this.profile = fresh;
                 if (window.App) window.App.currentUserProfile = fresh;
             } else if (window.App?.currentUserProfile?.uid) {
-                // Fall back to cached profile if Firestore fetch failed
+                // Use cached profile if available
                 this.profile = window.App.currentUserProfile;
+            } else {
+                // No Firestore doc — build minimal profile from Auth object
+                // This can happen if the doc write failed or hasn't propagated yet.
+                this.profile = {
+                    uid: this.user.uid,
+                    displayName: this.user.displayName || 'Professional',
+                    email: this.user.email || '',
+                    phoneNumber: this.user.phoneNumber || '',
+                    photoURL: this.user.photoURL || null,
+                    role: null,
+                    verified: false,
+                    onboardingComplete: false,
+                    wallet: { balance: 0, currency: '₹', pendingBonds: 0 },
+                    impact: { co2Saved: 0, transactions: 0, weightRescued: 0 }
+                };
+                // Create the missing doc so future reads work
+                FirebaseDB.upsertUserProfile(this.user.uid, this.profile).catch(console.warn);
             }
         }
 
@@ -505,10 +523,10 @@ export class ProfileScreen {
             this.listings = await FirebaseDB.getMyListings(this.user.uid).catch(() => []);
         }
 
-        // Render with real data
+        // Render with real data (or auth-derived profile)
         this.render(this.profile);
 
-        // Subscribe to real-time profile changes (picks up writes from Settings save)
+        // Subscribe to real-time profile changes
         if (this._unsubscribe) this._unsubscribe();
         if (this.user?.uid) {
             this._unsubscribe = FirebaseDB.listenToUserProfile(this.user.uid, (live) => {
