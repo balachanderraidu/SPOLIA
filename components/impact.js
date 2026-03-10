@@ -220,19 +220,24 @@ export class ImpactScreen {
     }
 
     async onActivate() {
+        // Unsubscribe any existing listener before re-subscribing
+        if (this._unsubscribe) {
+            this._unsubscribe();
+            this._unsubscribe = null;
+        }
+
         // Load live user profile
         const profile = window.App?.currentUserProfile || null;
-
-        // Subscribe to live platform stats
-        if (this._unsubscribe) this._unsubscribe();
-        this._unsubscribe = FirebaseDB.listenToPlatformStats((stats) => {
-            this._stats = stats;
-            this.render(stats, window.App?.currentUserProfile || profile);
-        });
 
         // Do initial render immediately with cached/mock stats while real-time loads
         if (!this._stats) {
             this.render(null, profile);
         }
+
+        // Subscribe to live platform stats
+        this._unsubscribe = FirebaseDB.listenToPlatformStats((stats) => {
+            this._stats = stats;
+            this.render(stats, window.App?.currentUserProfile || profile);
+        });
     }
 }

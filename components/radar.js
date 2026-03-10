@@ -7,6 +7,7 @@ export class RadarScreen {
     this.activeFilter = 'all';
     this.listings = [];
     this.unsubscribe = null;
+    this.userLocation = null;
   }
 
   render() {
@@ -22,7 +23,34 @@ export class RadarScreen {
   }
 
   onActivate() {
+    this._getUserLocation();
     this._loadListings(this.activeFilter);
+  }
+
+  _getUserLocation() {
+    if ('geolocation' in navigator) {
+      navigator.geolocation.getCurrentPosition(
+        position => {
+          this.userLocation = { lat: position.coords.latitude, lng: position.coords.longitude };
+          // Re-render listings with real distance if already loaded
+          if (this.listings.length) this._renderListings(this.listings);
+        },
+        error => console.warn('[Radar] Geolocation error:', error),
+        { enableHighAccuracy: false, timeout: 5000, maximumAge: 60000 }
+      );
+    }
+  }
+
+  // Haversine formula
+  _calculateDistance(lat1, lon1, lat2, lon2) {
+    const R = 6371; // km
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+              Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+              Math.sin(dLon/2) * Math.sin(dLon/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return parseFloat((R * c).toFixed(1));
   }
 
   _header() {
@@ -131,9 +159,17 @@ export class RadarScreen {
                 ${listing.contents.map(c => `<span style="display:inline-block;margin-right:8px">${c.n}: <strong style="color:var(--color-text-secondary)">${c.q}</strong></span>`).join('')}
                </div>`
         : '';
+      let calculatedDist = listing.distance;
+      if (this.userLocation && listing.location) {
+          calculatedDist = this._calculateDistance(
+              this.userLocation.lat, this.userLocation.lng,
+              listing.location.lat, listing.location.lng
+          );
+      }
+      
       const distText = listing.community
         ? `<span style="color:var(--color-green)">⚡ Elevator (0 km)</span>`
-        : `${listing.distance} km`;
+        : `${calculatedDist} km`;
 
       return `
       <article class="material-card" data-id="${listing.id}" tabindex="0"
@@ -141,8 +177,8 @@ export class RadarScreen {
         style="animation-delay:${i * 60}ms"
         onclick="window.navigate('material-detail', { listingId: '${listing.id}' })">
         <div class="material-card__thumb">
-          ${listing.imageUrl
-          ? `<img src="${listing.imageUrl}" alt="${listing.title}" onerror="this.parentElement.innerHTML='${this._emoji(listing.type)}'">`
+          ${listing.imageUrls?.[0]
+          ? `<img src="${listing.imageUrls[0]}" alt="${listing.title}" onerror="this.parentElement.innerHTML='${this._emoji(listing.type)}'">`
           : this._emoji(listing.type)}
         </div>
         <div class="material-card__body">

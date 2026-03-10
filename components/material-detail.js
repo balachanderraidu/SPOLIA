@@ -245,9 +245,32 @@ export class MaterialDetailScreen {
 
     onActivate(params = {}) {
         if (params.listingId) {
-            FirebaseDB.getListing(params.listingId).then(listing => {
-                if (listing) this.render(listing);
-            });
+            FirebaseDB.getListing(params.listingId)
+                .then(listing => {
+                    if (listing) {
+                        this.render(listing);
+                    } else {
+                        // Listing not found — show a clear error state
+                        this.el.innerHTML = `
+                          <div style="min-height:100%;background:#0D0D0D;display:flex;flex-direction:column;
+                            align-items:center;justify-content:center;padding:32px;text-align:center">
+                            <div style="font-size:48px;margin-bottom:16px">📦</div>
+                            <div style="font:700 18px/1.4 Inter,sans-serif;color:#F5F0E8;margin-bottom:8px">Listing Not Found</div>
+                            <div style="font:400 13px/1.5 Inter,sans-serif;color:#5C5647;margin-bottom:24px">
+                              This listing may have been removed or is no longer available.
+                            </div>
+                            <button onclick="window.navigate('radar')"
+                              style="height:44px;padding:0 24px;border-radius:12px;background:#FFD700;
+                                border:none;font:600 14px/1 Inter,sans-serif;color:#0D0D0D;cursor:pointer">
+                              Back to Radar
+                            </button>
+                          </div>`;
+                    }
+                })
+                .catch(() => {
+                    window.showToast?.('Failed to load listing. Please try again.', 'error');
+                    window.navigate?.('radar');
+                });
         } else if (!this.listing) {
             this.render(MOCK_LISTINGS[0]);
         }

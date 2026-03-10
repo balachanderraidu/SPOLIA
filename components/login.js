@@ -335,7 +335,9 @@ export class LoginScreen {
             verifyBtn.disabled = true;
             verifyBtn.textContent = 'Verifying…';
             try {
-                const isGoogleUser = !!FirebaseAuth.getCurrentUser();
+                const currentUser = FirebaseAuth.getCurrentUser();
+                // Only link phone if user signed in via Google (not via phone itself)
+                const isGoogleUser = currentUser?.providerData?.some(p => p.providerId === 'google.com') ?? false;
                 if (isGoogleUser) {
                     await FirebaseAuth.linkPhone(code);
                 } else {

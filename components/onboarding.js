@@ -41,9 +41,10 @@ export class OnboardingScreen {
     _header(title, stepNum, backable = true) {
         return `
       <div style="display:flex;align-items:center;padding:max(env(safe-area-inset-top),18px) 20px 0;gap:12px">
-        <button id="back-btn" ${!backable ? 'style="visibility:hidden"' : ''}
+        <button id="back-btn"
           style="width:36px;height:36px;border-radius:50%;background:#1A1A1A;border:1px solid #2A2A2A;
-            display:flex;align-items:center;justify-content:center;cursor:pointer;color:#F5F0E8">
+            display:flex;align-items:center;justify-content:center;cursor:pointer;color:#F5F0E8;
+            ${!backable ? 'visibility:hidden;pointer-events:none' : ''}">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
         </button>
         <span style="flex:1;text-align:center;font:600 15px/1 Inter,sans-serif;color:#F5F0E8">${title}</span>

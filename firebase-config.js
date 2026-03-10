@@ -13,7 +13,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
 import {
     getFirestore, collection, query, where, orderBy,
-    onSnapshot, doc, getDoc, setDoc, addDoc, updateDoc, serverTimestamp, increment
+    onSnapshot, doc, getDoc, getDocs, setDoc, addDoc, updateDoc, serverTimestamp, increment
 } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
 import {
     getStorage, ref, uploadBytes, getDownloadURL
@@ -297,8 +297,12 @@ const FirebaseDB = {
                 // Existing user — merge provided fields; strip fields only admin should set.
                 const { uid: _uid, role, verified, onboardingComplete, createdAt,
                         impact, wallet, ...safeUpdates } = profileData;
+                // Remove undefined values — Firestore rejects them
+                const cleanUpdates = Object.fromEntries(
+                    Object.entries(safeUpdates).filter(([, v]) => v !== undefined)
+                );
                 await updateDoc(userRef, {
-                    ...safeUpdates,
+                    ...cleanUpdates,
                     lastSeenAt: serverTimestamp()
                 });
             }
@@ -351,11 +355,8 @@ const FirebaseDB = {
                 where("uid", "==", uid),
                 orderBy("createdAt", "desc")
             );
-            const snap = await new Promise((resolve, reject) => {
-                const unsub = onSnapshot(q, resolve, reject);
-                // one-shot
-                setTimeout(unsub, 0);
-            });
+            // Use getDocs for a reliable one-shot fetch (avoids onSnapshot + setTimeout race)
+            const snap = await getDocs(q);
             return snap.docs.map(d => ({ id: d.id, ...d.data() }));
         } catch (err) {
             console.warn("[FirebaseDB] getMyListings error:", err);
@@ -411,6 +412,39 @@ const FirebaseDB = {
             status: "open",
             createdAt: serverTimestamp()
         });
+    },
+
+    /**
+     * Submit a wallet withdrawal request
+     */
+    submitWithdrawal: async (withdrawalData) => {
+        const user = auth.currentUser;
+        if (!user) throw new Error("Must be logged in");
+        
+        await addDoc(collection(db, "withdrawals"), {
+            ...withdrawalData,
+            uid: user.uid,
+            status: "pending",
+            createdAt: serverTimestamp()
+        });
+    },
+
+    /**
+     * Fetch user's own bonds.
+     */
+    getMyBonds: async (uid) => {
+        try {
+            const q = query(
+                collection(db, "bonds"),
+                where("buyerUid", "==", uid),
+                orderBy("createdAt", "desc")
+            );
+            const snap = await getDocs(q);
+            return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        } catch (err) {
+            console.warn("[FirebaseDB] getMyBonds error:", err);
+            return [];
+        }
     },
 
     /**

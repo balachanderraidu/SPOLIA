@@ -56,7 +56,8 @@ export class ProfileScreen {
         const wallet = u.wallet || { balance: 0, currency: '₹', pendingBonds: 0 };
         const impact = u.impact || { co2Saved: 0, transactions: 0, weightRescued: 0 };
         const isVerified = u.verified === true;
-        const isPending = u.verificationStatus === 'pending' || (u.role && !isVerified);
+        // Only show "PENDING" if they explicitly submitted verification (verificationStatus = 'pending')
+        const isPending = u.verificationStatus === 'pending' && !isVerified;
 
         this.el.innerHTML = `
       <!-- Scrollable profile -->
@@ -121,7 +122,7 @@ export class ProfileScreen {
             <div>
               <div style="font:500 11px/1 Inter,sans-serif;color:#5C5647;letter-spacing:0.1em;text-transform:uppercase;margin-bottom:10px">Spolia Wallet</div>
               <div style="font:700 28px/1 Inter,sans-serif;color:#FFD700;margin-bottom:6px">${wallet.currency}${(wallet.balance || 0).toLocaleString('en-IN')}</div>
-              <div style="font:400 12px/1 Inter,sans-serif;color:#5C5647">${wallet.pendingBonds || 0} Active Bond${wallet.pendingBonds !== 1 ? 's' : ''} in escrow</div>
+              <div id="bonds-btn" style="font:400 12px/1 Inter,sans-serif;color:#5C5647;text-decoration:underline;cursor:pointer">${wallet.pendingBonds || 0} Active Bond${wallet.pendingBonds !== 1 ? 's' : ''} in escrow</div>
             </div>
             <button id="withdraw-btn"
               style="height:38px;padding:0 18px;border-radius:10px;border:1.5px solid #2A2A2A;
@@ -237,16 +238,16 @@ export class ProfileScreen {
 
     _bindActions() {
         this.el.querySelector('#withdraw-btn')?.addEventListener('click', () =>
-            window.showToast?.('Withdrawal coming soon', 'info'));
+            this._openWithdrawalSheet());
 
         this.el.querySelector('#view-all-btn')?.addEventListener('click', () =>
-            window.showToast?.('Full listings view coming soon', 'info'));
+            this._openViewAllSheet());
 
         this.el.querySelector('#docs-btn')?.addEventListener('click', () =>
-            window.showToast?.('Document vault coming soon', 'info'));
+            this._openDocsSheet());
 
         this.el.querySelector('#notifs-btn')?.addEventListener('click', () =>
-            window.showToast?.('Notification preferences coming soon', 'info'));
+            this._openNotifsSheet());
 
         this.el.querySelector('#refer-btn')?.addEventListener('click', () => {
             const url = `${window.location.origin}?ref=${this.profile?.uid || ''}`;
@@ -266,6 +267,9 @@ export class ProfileScreen {
         this.el.querySelector('#settings-btn')?.addEventListener('click', () =>
             this._openSettings());
 
+        this.el.querySelector('#bonds-btn')?.addEventListener('click', () =>
+            this._openBondsSheet());
+
         this.el.querySelector('#signout-btn')?.addEventListener('click', async () => {
             if (confirm('Sign out of Spolia?')) {
                 if (this._unsubscribe) { this._unsubscribe(); this._unsubscribe = null; }
@@ -273,6 +277,473 @@ export class ProfileScreen {
                 await window.signOut?.();
             }
         });
+    }
+
+    _openWithdrawalSheet() {
+        const u = this.profile || {};
+        const wallet = u.wallet || { balance: 0, currency: '₹', pendingBonds: 0 };
+
+        document.getElementById('settings-sheet-overlay')?.remove();
+
+        const overlay = document.createElement('div');
+        overlay.id = 'settings-sheet-overlay';
+        overlay.style.cssText = `
+          position:fixed;inset:0;z-index:600;
+          background:rgba(0,0,0,0.65);backdrop-filter:blur(4px);
+          display:flex;align-items:flex-end;justify-content:center;
+          animation:fadeIn 200ms ease;
+        `;
+
+        overlay.innerHTML = `
+          <style>
+            @keyframes slideUp   { from { transform:translateY(100%) } to { transform:translateY(0) } }
+            @keyframes fadeIn    { from { opacity:0 } to { opacity:1 } }
+            @keyframes slideDown { from { transform:translateY(0) } to { transform:translateY(100%) } }
+          </style>
+          <div id="settings-sheet" style="
+            width:100%;max-width:480px;
+            background:#111;border-top:1px solid #2A2A2A;
+            border-radius:24px 24px 0 0;padding-bottom:env(safe-area-inset-bottom,16px);
+            animation:slideUp 300ms cubic-bezier(0.32,0.72,0,1);
+            max-height:90vh;overflow-y:auto;
+          ">
+            <div style="width:40px;height:4px;background:#333;border-radius:2px;margin:12px auto 0;"></div>
+            
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px 12px">
+              <div>
+                <h2 style="font:700 18px/1 'Playfair Display',Georgia,serif;color:#FFD700;margin-bottom:4px">Withdraw Funds</h2>
+                <div style="font:400 12px/1 Inter,sans-serif;color:#A09882">Available Balance: ${wallet.currency}${wallet.balance.toLocaleString('en-IN')}</div>
+              </div>
+              <button id="settings-close" aria-label="Close"
+                style="width:32px;height:32px;border-radius:50%;background:#1A1A1A;border:1px solid #2A2A2A;
+                  display:flex;align-items:center;justify-content:center;cursor:pointer;color:#A09882;font-size:16px">✕</button>
+            </div>
+
+            <div style="padding:0 20px 20px">
+              <div style="margin-bottom:12px">
+                <label style="font:500 12px/1 Inter,sans-serif;color:#A09882;display:block;margin-bottom:6px">Amount to Withdraw</label>
+                <input id="withdraw-amount" type="number" max="${wallet.balance}"
+                  style="width:100%;box-sizing:border-box;height:44px;background:#1A1A1A;border:1px solid #2A2A2A;
+                    border-radius:12px;padding:0 14px;color:#F5F0E8;font:700 16px/1 Inter,sans-serif;
+                    outline:none;caret-color:#FFD700"
+                  placeholder="0">
+              </div>
+
+              <div style="margin-bottom:12px">
+                <label style="font:500 12px/1 Inter,sans-serif;color:#A09882;display:block;margin-bottom:6px">Bank Account Name</label>
+                <input id="withdraw-name" type="text"
+                  style="width:100%;box-sizing:border-box;height:44px;background:#1A1A1A;border:1px solid #2A2A2A;
+                    border-radius:12px;padding:0 14px;color:#F5F0E8;font:400 14px/1 Inter,sans-serif;outline:none"
+                  placeholder="Name as per bank">
+              </div>
+
+              <div style="margin-bottom:12px">
+                <label style="font:500 12px/1 Inter,sans-serif;color:#A09882;display:block;margin-bottom:6px">Account Number</label>
+                <input id="withdraw-acc" type="text"
+                  style="width:100%;box-sizing:border-box;height:44px;background:#1A1A1A;border:1px solid #2A2A2A;
+                    border-radius:12px;padding:0 14px;color:#F5F0E8;font:400 14px/1 Inter,sans-serif;outline:none"
+                  placeholder="1234567890">
+              </div>
+
+              <div style="margin-bottom:20px">
+                <label style="font:500 12px/1 Inter,sans-serif;color:#A09882;display:block;margin-bottom:6px">IFSC Code</label>
+                <input id="withdraw-ifsc" type="text"
+                  style="width:100%;box-sizing:border-box;height:44px;background:#1A1A1A;border:1px solid #2A2A2A;
+                    border-radius:12px;padding:0 14px;color:#F5F0E8;font:400 14px/1 Inter,sans-serif;outline:none;text-transform:uppercase"
+                  placeholder="SBIN0001234">
+              </div>
+
+              <button id="withdraw-submit"
+                style="width:100%;height:44px;border-radius:12px;background:#FFD700;border:none;
+                  color:#0D0D0D;font:700 14px/1 Inter,sans-serif;cursor:pointer;
+                  transition:opacity 150ms">
+                Request Withdrawal
+              </button>
+              
+              <p style="font:400 11px/1.4 Inter,sans-serif;color:#5C5647;text-align:center;margin-top:12px">
+                Transfers typically take 2-3 business days to reflect in your account.
+              </p>
+            </div>
+          </div>`;
+
+        document.body.appendChild(overlay);
+
+        const close = (animate = true) => {
+            if (!animate) { overlay.remove(); return; }
+            const sheet = overlay.querySelector('#settings-sheet');
+            if (sheet) sheet.style.animation = 'slideDown 250ms cubic-bezier(0.32,0.72,0,1) forwards';
+            overlay.style.animation = 'fadeIn 200ms ease reverse forwards';
+            setTimeout(() => overlay.remove(), 250);
+        };
+
+        overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
+        overlay.querySelector('#settings-close')?.addEventListener('click', () => close());
+
+        overlay.querySelector('#withdraw-submit')?.addEventListener('click', async () => {
+            const amt = parseFloat(overlay.querySelector('#withdraw-amount').value || '0');
+            const name = overlay.querySelector('#withdraw-name').value.trim();
+            const acc = overlay.querySelector('#withdraw-acc').value.trim();
+            const ifsc = overlay.querySelector('#withdraw-ifsc').value.trim().toUpperCase();
+
+            if (amt <= 0 || amt > wallet.balance) return window.showToast?.('Invalid amount', 'error');
+            if (!name || !acc || !ifsc) return window.showToast?.('Please fill all bank details', 'error');
+
+            const btn = overlay.querySelector('#withdraw-submit');
+            btn.textContent = 'Processing...'; btn.disabled = true;
+
+            try {
+                await FirebaseDB.submitWithdrawal({ amount: amt, name, account: acc, ifsc });
+                window.showToast?.('Withdrawal request submitted successfully ✓', 'success');
+                close();
+            } catch (err) {
+                window.showToast?.('Withdrawal failed. Try again.', 'error');
+                btn.textContent = 'Request Withdrawal'; btn.disabled = false;
+            }
+        });
+    }
+
+    _openViewAllSheet() {
+        document.getElementById('settings-sheet-overlay')?.remove();
+        const overlay = document.createElement('div');
+        overlay.id = 'settings-sheet-overlay';
+        overlay.style.cssText = `
+          position:fixed;inset:0;z-index:600;
+          background:rgba(0,0,0,0.65);backdrop-filter:blur(4px);
+          display:flex;align-items:flex-end;justify-content:center;
+          animation:fadeIn 200ms ease;
+        `;
+        
+        let gridHtml = '';
+        if (this.listings.length === 0) {
+            gridHtml = `<div style="text-align:center;padding:40px 20px;color:#A09882">No listings found.</div>`;
+        } else {
+            const EMOJI = { stone:'🪨', marble:'🪨', steel:'⚙️', wood:'🪵', brick:'🧱', other:'📦', bulk:'📦', plumbing:'🔧', cement:'🏗️' };
+            gridHtml = `<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+                ${this.listings.map(l => `
+                  <div onclick="document.getElementById('settings-close').click(); window.navigate?.('material-detail',{listingId:'${l.id}'})"
+                    style="background:#1A1A1A;border:1px solid #2A2A2A;border-radius:16px;overflow:hidden;cursor:pointer">
+                    <div style="height:96px;background:#111;display:flex;align-items:center;justify-content:center;font-size:36px">
+                      ${l.imageUrls?.[0]
+                        ? `<img src="${l.imageUrls[0]}" style="width:100%;height:100%;object-fit:cover" alt="${l.title}">`
+                        : (EMOJI[l.type] || '📦')}
+                    </div>
+                    <div style="padding:10px 12px">
+                      <div style="font:600 12px/1.3 Inter,sans-serif;color:#F5F0E8;margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${l.title}</div>
+                      <div style="font:700 13px/1 Inter,sans-serif;color:#FFD700">${l.currency || '₹'}${(l.price || 0).toLocaleString('en-IN')}/${l.unit}</div>
+                    </div>
+                  </div>`).join('')}
+                </div>`;
+        }
+
+        overlay.innerHTML = `
+          <div id="settings-sheet" style="
+            width:100%;max-width:480px;height:85vh;
+            background:#111;border-top:1px solid #2A2A2A;
+            border-radius:24px 24px 0 0;padding-bottom:env(safe-area-inset-bottom,16px);
+            animation:slideUp 300ms cubic-bezier(0.32,0.72,0,1);
+            display:flex;flex-direction:column;
+          ">
+            <div style="width:40px;height:4px;background:#333;border-radius:2px;margin:12px auto 0;flex-shrink:0"></div>
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px 12px;flex-shrink:0">
+              <h2 style="font:700 18px/1 'Playfair Display',Georgia,serif;color:#FFD700">All My Listings</h2>
+              <button id="settings-close"
+                style="width:32px;height:32px;border-radius:50%;background:#1A1A1A;border:1px solid #2A2A2A;
+                  display:flex;align-items:center;justify-content:center;cursor:pointer;color:#A09882;font-size:16px">✕</button>
+            </div>
+            <div style="padding:0 20px 20px;overflow-y:auto;flex:1">
+               ${gridHtml}
+            </div>
+          </div>`;
+
+        document.body.appendChild(overlay);
+
+        const close = (animate = true) => {
+            if (!animate) { overlay.remove(); return; }
+            const sheet = overlay.querySelector('#settings-sheet');
+            if (sheet) sheet.style.animation = 'slideDown 250ms cubic-bezier(0.32,0.72,0,1) forwards';
+            overlay.style.animation = 'fadeIn 200ms ease reverse forwards';
+            setTimeout(() => overlay.remove(), 250);
+        };
+
+        overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
+        overlay.querySelector('#settings-close')?.addEventListener('click', () => close());
+    }
+
+    _openDocsSheet() {
+        const u = this.profile || {};
+        document.getElementById('settings-sheet-overlay')?.remove();
+        const overlay = document.createElement('div');
+        overlay.id = 'settings-sheet-overlay';
+        overlay.style.cssText = `
+          position:fixed;inset:0;z-index:600;
+          background:rgba(0,0,0,0.65);backdrop-filter:blur(4px);
+          display:flex;align-items:flex-end;justify-content:center;
+          animation:fadeIn 200ms ease;
+        `;
+        
+        let docContent = `<div style="text-align:center;padding:40px 20px;color:#A09882">No verification document uploaded.</div>`;
+        if (u.verificationDocUrl) {
+            // Assume image for now based on app logic, can provide download link if PDF
+            docContent = `<div style="border:1px solid #2A2A2A;border-radius:12px;overflow:hidden;background:#000">
+                <img src="${u.verificationDocUrl}" style="width:100%;object-fit:contain;max-height:400px" alt="Verification Document">
+            </div>
+            <a href="${u.verificationDocUrl}" target="_blank" style="display:block;text-align:center;margin-top:12px;color:#FFD700;font:600 13px Inter;text-decoration:none">
+                Open Full Size ↗
+            </a>`;
+        }
+
+        overlay.innerHTML = `
+          <div id="settings-sheet" style="
+            width:100%;max-width:480px;
+            background:#111;border-top:1px solid #2A2A2A;
+            border-radius:24px 24px 0 0;padding-bottom:env(safe-area-inset-bottom,16px);
+            animation:slideUp 300ms cubic-bezier(0.32,0.72,0,1);
+            max-height:90vh;overflow-y:auto;
+          ">
+            <div style="width:40px;height:4px;background:#333;border-radius:2px;margin:12px auto 0;"></div>
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px 12px">
+              <h2 style="font:700 18px/1 'Playfair Display',Georgia,serif;color:#FFD700">Verification Vault</h2>
+              <button id="settings-close"
+                style="width:32px;height:32px;border-radius:50%;background:#1A1A1A;border:1px solid #2A2A2A;
+                  display:flex;align-items:center;justify-content:center;cursor:pointer;color:#A09882;font-size:16px">✕</button>
+            </div>
+            
+            <div style="padding:0 20px 20px">
+              <!-- Credentials Info -->
+              <div style="background:#1A1A1A;border:1px solid #2A2A2A;border-radius:12px;padding:16px;margin-bottom:16px">
+                <div style="display:flex;justify-content:space-between;margin-bottom:8px">
+                  <span style="font:400 12px Inter;color:#A09882">Role</span>
+                  <span style="font:600 13px Inter;color:#F5F0E8;text-transform:capitalize">${u.role || 'Unverified'}</span>
+                </div>
+                <div style="display:flex;justify-content:space-between">
+                  <span style="font:400 12px Inter;color:#A09882">Registration No.</span>
+                  <span style="font:600 13px Inter;color:#FFD700">${u.credentialNumber || 'N/A'}</span>
+                </div>
+              </div>
+              
+              <!-- Document Viewer -->
+              <h3 style="font:600 12px Inter;color:#A09882;text-transform:uppercase;letter-spacing:0.05em;margin:0 0 12px">Uploaded Document</h3>
+              ${docContent}
+            </div>
+          </div>`;
+
+        document.body.appendChild(overlay);
+
+        const close = (animate = true) => {
+            if (!animate) { overlay.remove(); return; }
+            const sheet = overlay.querySelector('#settings-sheet');
+            if (sheet) sheet.style.animation = 'slideDown 250ms cubic-bezier(0.32,0.72,0,1) forwards';
+            overlay.style.animation = 'fadeIn 200ms ease reverse forwards';
+            setTimeout(() => overlay.remove(), 250);
+        };
+
+        overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
+        overlay.querySelector('#settings-close')?.addEventListener('click', () => close());
+    }
+
+    _openNotifsSheet() {
+        const u = this.profile || {};
+        const prefs = u.preferences || { email: true, push: false, sms: false };
+        document.getElementById('settings-sheet-overlay')?.remove();
+        
+        const overlay = document.createElement('div');
+        overlay.id = 'settings-sheet-overlay';
+        overlay.style.cssText = `
+          position:fixed;inset:0;z-index:600;
+          background:rgba(0,0,0,0.65);backdrop-filter:blur(4px);
+          display:flex;align-items:flex-end;justify-content:center;
+          animation:fadeIn 200ms ease;
+        `;
+
+        const renderToggle = (id, label, desc, checked) => `
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 0;border-bottom:1px solid #2A2A2A">
+            <div>
+              <div style="font:600 14px Inter;color:#F5F0E8;margin-bottom:4px">${label}</div>
+              <div style="font:400 12px Inter;color:#A09882">${desc}</div>
+            </div>
+            <label style="position:relative;display:inline-block;width:44px;height:24px">
+              <input type="checkbox" id="pref-${id}" ${checked ? 'checked' : ''} style="opacity:0;width:0;height:0">
+              <span style="position:absolute;cursor:pointer;top:0;left:0;right:0;bottom:0;background-color:${checked ? '#FFD700' : '#333'};transition:.3s;border-radius:24px">
+                <span style="position:absolute;content:'';height:18px;width:18px;left:3px;bottom:3px;background-color:${checked ? '#000' : '#888'};transition:.3s;border-radius:50%;transform:${checked ? 'translateX(20px)' : 'none'}"></span>
+              </span>
+            </label>
+          </div>
+        `;
+
+        overlay.innerHTML = `
+          <div id="settings-sheet" style="
+            width:100%;max-width:480px;
+            background:#111;border-top:1px solid #2A2A2A;
+            border-radius:24px 24px 0 0;padding-bottom:env(safe-area-bottom,16px);
+            animation:slideUp 300ms cubic-bezier(0.32,0.72,0,1);
+          ">
+            <div style="width:40px;height:4px;background:#333;border-radius:2px;margin:12px auto 0;"></div>
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px 12px">
+              <h2 style="font:700 18px/1 'Playfair Display',Georgia,serif;color:#FFD700">Notifications</h2>
+              <button id="settings-close"
+                style="width:32px;height:32px;border-radius:50%;background:#1A1A1A;border:1px solid #2A2A2A;
+                  display:flex;align-items:center;justify-content:center;cursor:pointer;color:#A09882;font-size:16px">✕</button>
+            </div>
+            
+            <div style="padding:0 20px 20px">
+              <div style="background:#1A1A1A;border:1px solid #2A2A2A;border-radius:16px;padding:0 16px;margin-bottom:24px">
+                ${renderToggle('email', 'Email Updates', 'Dispute updates and Weekly digests', prefs.email)}
+                ${renderToggle('push', 'Push Notifications', 'Real-time Radar matches and messages', prefs.push)}
+                <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 0">
+                    <div>
+                    <div style="font:600 14px Inter;color:#F5F0E8;margin-bottom:4px">SMS Alerts</div>
+                    <div style="font:400 12px Inter;color:#A09882">Urgent pickup logistics only</div>
+                    </div>
+                    <label style="position:relative;display:inline-block;width:44px;height:24px">
+                    <input type="checkbox" id="pref-sms" ${prefs.sms ? 'checked' : ''} style="opacity:0;width:0;height:0">
+                    <span style="position:absolute;cursor:pointer;top:0;left:0;right:0;bottom:0;background-color:${prefs.sms ? '#FFD700' : '#333'};transition:.3s;border-radius:24px">
+                        <span style="position:absolute;content:'';height:18px;width:18px;left:3px;bottom:3px;background-color:${prefs.sms ? '#000' : '#888'};transition:.3s;border-radius:50%;transform:${prefs.sms ? 'translateX(20px)' : 'none'}"></span>
+                    </span>
+                    </label>
+                </div>
+              </div>
+              <button id="notif-save"
+                style="width:100%;height:44px;border-radius:12px;background:#FFD700;border:none;
+                  color:#0D0D0D;font:700 14px/1 Inter,sans-serif;cursor:pointer">
+                Save Preferences
+              </button>
+            </div>
+          </div>`;
+
+        document.body.appendChild(overlay);
+
+        // Bind interactive toggles
+        ['email', 'push', 'sms'].forEach(id => {
+            const input = overlay.querySelector(`#pref-${id}`);
+            const track = input?.nextElementSibling;
+            const thumb = track?.firstElementChild;
+            input?.addEventListener('change', (e) => {
+                const checked = e.target.checked;
+                if(track) track.style.backgroundColor = checked ? '#FFD700' : '#333';
+                if(thumb) {
+                    thumb.style.transform = checked ? 'translateX(20px)' : 'none';
+                    thumb.style.backgroundColor = checked ? '#000' : '#888';
+                }
+            });
+        });
+
+        const close = (animate = true) => {
+            if (!animate) { overlay.remove(); return; }
+            const sheet = overlay.querySelector('#settings-sheet');
+            if (sheet) sheet.style.animation = 'slideDown 250ms cubic-bezier(0.32,0.72,0,1) forwards';
+            overlay.style.animation = 'fadeIn 200ms ease reverse forwards';
+            setTimeout(() => overlay.remove(), 250);
+        };
+
+        overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
+        overlay.querySelector('#settings-close')?.addEventListener('click', () => close());
+
+        overlay.querySelector('#notif-save')?.addEventListener('click', async () => {
+             const newPrefs = {
+                 email: overlay.querySelector('#pref-email')?.checked || false,
+                 push: overlay.querySelector('#pref-push')?.checked || false,
+                 sms: overlay.querySelector('#pref-sms')?.checked || false
+             };
+             
+             if(newPrefs.push && Notification.permission !== 'granted') {
+                 try {
+                     const perm = await Notification.requestPermission();
+                     if(perm !== 'granted') newPrefs.push = false;
+                 } catch(err) { newPrefs.push = false; }
+             }
+
+             const btn = overlay.querySelector('#notif-save');
+             btn.textContent = 'Saving...'; btn.disabled = true;
+
+             if(this.user?.uid) {
+                 try {
+                     await FirebaseDB.upsertUserProfile(this.user.uid, { preferences: newPrefs });
+                     window.showToast?.('Preferences saved ✓', 'success');
+                     if(this.profile) this.profile.preferences = newPrefs;
+                     close();
+                 } catch(err) {
+                     window.showToast?.('Failed to save preferences', 'error');
+                     btn.textContent = 'Save Preferences'; btn.disabled = false;
+                 }
+             } else {
+                 close();
+             }
+        });
+    }
+
+    async _openBondsSheet() {
+        document.getElementById('settings-sheet-overlay')?.remove();
+        
+        const overlay = document.createElement('div');
+        overlay.id = 'settings-sheet-overlay';
+        overlay.style.cssText = `
+          position:fixed;inset:0;z-index:600;
+          background:rgba(0,0,0,0.65);backdrop-filter:blur(4px);
+          display:flex;align-items:flex-end;justify-content:center;
+          animation:fadeIn 200ms ease;
+        `;
+        document.body.appendChild(overlay);
+
+        let listHtml = `<div style="text-align:center;padding:40px 20px;color:#A09882">Loading bonds...</div>`;
+        
+        const renderSheet = () => {
+            overlay.innerHTML = `
+              <div id="settings-sheet" style="
+                width:100%;max-width:480px;height:75vh;
+                background:#111;border-top:1px solid #2A2A2A;
+                border-radius:24px 24px 0 0;padding-bottom:env(safe-area-bottom,16px);
+                animation:slideUp 300ms cubic-bezier(0.32,0.72,0,1);
+                display:flex;flex-direction:column;
+              ">
+                <div style="width:40px;height:4px;background:#333;border-radius:2px;margin:12px auto 0;flex-shrink:0"></div>
+                <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px 12px;flex-shrink:0">
+                  <h2 style="font:700 18px/1 'Playfair Display',Georgia,serif;color:#FFD700">My Spolia Bonds</h2>
+                  <button id="settings-close"
+                    style="width:32px;height:32px;border-radius:50%;background:#1A1A1A;border:1px solid #2A2A2A;
+                      display:flex;align-items:center;justify-content:center;cursor:pointer;color:#A09882;font-size:16px">✕</button>
+                </div>
+                <div style="padding:0 20px 20px;overflow-y:auto;flex:1">
+                  ${listHtml}
+                </div>
+              </div>`;
+
+            const close = (animate = true) => {
+                if (!animate) { overlay.remove(); return; }
+                const sheet = overlay.querySelector('#settings-sheet');
+                if (sheet) sheet.style.animation = 'slideDown 250ms cubic-bezier(0.32,0.72,0,1) forwards';
+                overlay.style.animation = 'fadeIn 200ms ease reverse forwards';
+                setTimeout(() => overlay.remove(), 250);
+            };
+
+            overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
+            overlay.querySelector('#settings-close')?.addEventListener('click', () => close());
+        };
+        
+        renderSheet();
+
+        try {
+            const bonds = await FirebaseDB.getMyBonds(this.user?.uid);
+            if (bonds.length === 0) {
+                listHtml = `<div style="text-align:center;padding:40px 20px;color:#A09882">No active bonds found.</div>`;
+            } else {
+                listHtml = `<div style="display:flex;flex-direction:column;gap:12px">
+                    ${bonds.map(b => `
+                        <div onclick="document.getElementById('settings-close').click(); window.navigate?.('bond-detail',{bondId:'${b.id}'})"
+                            style="background:#1A1A1A;border:1px solid #2A2A2A;border-radius:12px;padding:16px;cursor:pointer">
+                            <div style="display:flex;justify-content:space-between;margin-bottom:8px">
+                                <span style="font:600 14px Inter;color:#F5F0E8">₹${(b.depositAmount||0).toLocaleString('en-IN')}</span>
+                                <span style="font:500 11px Inter;color:${b.status==='active'?'#4CAF82':'#FFA000'};background:rgba(255,255,255,0.05);padding:2px 6px;border-radius:4px;text-transform:uppercase">${b.status}</span>
+                            </div>
+                            <div style="font:400 12px Inter;color:#A09882;font-family:monospace">ID: ${b.id.substring(0,8).toUpperCase()}</div>
+                        </div>
+                    `).join('')}
+                </div>`;
+            }
+            renderSheet();
+        } catch (err) {
+            listHtml = `<div style="text-align:center;padding:40px 20px;color:#FF4444">Failed to load bonds.</div>`;
+            renderSheet();
+        }
     }
 
     _openSettings() {

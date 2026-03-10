@@ -78,7 +78,16 @@ export class ScannerScreen {
     }
 
     onActivate() {
+        // Stop any previous stream before starting a new one
+        this._stopCamera();
         this._startCamera();
+    }
+
+    _stopCamera() {
+        if (this.stream) {
+            this.stream.getTracks().forEach(track => track.stop());
+            this.stream = null;
+        }
     }
 
     async _startCamera() {

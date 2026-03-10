@@ -15,7 +15,7 @@ export class VendorsScreen {
           <p class="page-header__subtitle">Official outlet deals &amp; clearance</p>
         </div>
         <button class="btn btn--outline" style="width:auto;height:32px;padding:0 14px;font-size:12px"
-          onclick="window.showToast('Vendor partner login coming soon','info')">
+          onclick="window.open('mailto:partners@spolia.in?subject=Vendor%20Partner%20Inquiry', '_blank')">
           Partner Login
         </button>
       </header>
@@ -79,7 +79,8 @@ export class VendorsScreen {
               <span style="font:var(--text-caption);color:var(--color-text-muted);text-decoration:line-through">${v.currency}${v.oldPrice.toLocaleString('en-IN')}${v.unit ? '/' + v.unit : ''}</span>
               <span style="font:700 20px/1 var(--font-body);color:var(--color-gold)">${v.currency}${v.price.toLocaleString('en-IN')}${v.unit ? '/' + v.unit : ''}</span>
             </div>
-            <button class="btn btn--gold" style="width:auto;height:36px;padding:0 20px;font-size:13px">
+            <button class="btn btn--gold" style="width:auto;height:36px;padding:0 20px;font-size:13px"
+              onclick="event.stopPropagation(); window.open('https://wa.me/919876543210?text=Hi%2C%20I%20saw%20${encodeURIComponent(v.title)}%20on%20Spolia%20and%20I%20would%20like%20to%20purchase%20it.', '_blank')">
               Buy Now
             </button>
           </div>

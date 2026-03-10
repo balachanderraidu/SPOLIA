@@ -24,13 +24,17 @@ self.addEventListener("install", (event) => {
     self.skipWaiting();
 });
 
-// Activate: Clean ALL old caches immediately
+// Activate: Clean ONLY old caches — keep current CACHE_NAME
 self.addEventListener("activate", (event) => {
     event.waitUntil(
         caches.keys().then((keys) =>
-            Promise.all(keys.map((key) => caches.delete(key)))
+            Promise.all(
+                keys
+                    .filter((key) => key !== CACHE_NAME)
+                    .map((key) => caches.delete(key))
+            )
         ).then(() => {
-            console.log("[SW] All old caches cleared");
+            console.log("[SW] Old caches cleared, current cache kept:", CACHE_NAME);
         })
     );
     self.clients.claim();

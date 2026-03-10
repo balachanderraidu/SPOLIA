@@ -32,6 +32,7 @@ import { MaterialDetailScreen } from './components/material-detail.js';
 import { DisputeScreen }      from './components/dispute.js';
 import { LogisticsScreen }    from './components/logistics.js';
 import { ListingCreateScreen } from './components/listing-create.js';
+import { BondDetailScreen }    from './components/bond-detail.js';
 
 
 // ── App State ──────────────────────────────────────────────────────
@@ -58,7 +59,8 @@ const App = {
         'material-detail': { title: 'Listing Detail',  component: MaterialDetailScreen },
         dispute:           { title: 'Report Issue',    component: DisputeScreen },
         logistics:         { title: 'Pickup Route',    component: LogisticsScreen },
-        'listing-create':  { title: 'Create Listing',  component: ListingCreateScreen }
+        'listing-create':  { title: 'Create Listing',  component: ListingCreateScreen },
+        'bond-detail':     { title: 'Bond Details',    component: BondDetailScreen }
     }
 };
 
@@ -78,7 +80,12 @@ export function navigate(routeName, params = {}) {
         return;
     }
 
-    if (routeName === App.currentRoute) return;
+    if (routeName === App.currentRoute) {
+        // Same route — just re-fire onActivate (acts as a refresh), no animation
+        const instance = App.screenInstances[routeName];
+        if (instance?.onActivate) instance.onActivate({});
+        return;
+    }
     _activateScreen(routeName, params);
 }
 
