@@ -121,9 +121,11 @@ export class DisputeScreen {
     }
 
     _bindEvents() {
-        // Back button — return to listing detail if we have context, else radar
+        // Back button — return to bond-detail if we have a bond, else listing, else radar
         this.el.querySelector('#back-btn')?.addEventListener('click', () => {
-            if (this.listingId) {
+            if (this.bondId) {
+                window.navigate?.('bond-detail', { bondId: this.bondId });
+            } else if (this.listingId) {
                 window.navigate?.('material-detail', { listingId: this.listingId });
             } else {
                 window.navigate?.('radar');
@@ -226,16 +228,35 @@ export class DisputeScreen {
         }
 
         try {
+            const bondId = this.bondId || this.el.querySelector('#bond-id')?.value || null;
+
             await FirebaseDB.submitDispute({
                 listingId: this.listingId || null,
                 listingTitle: this.listingTitle || null,
-                bondId: this.bondId || this.el.querySelector('#bond-id')?.value || null,
+                bondId,
                 issueType,
                 description: desc,
                 resolution: this.selectedResolution,
                 photoCount: this.photos.length,
                 timestamp: new Date().toISOString()
             });
+
+            // Freeze the bond status to 'disputed' + notify seller
+            if (bondId) {
+                FirebaseDB.updateBondStatus(bondId, 'disputed').catch(() => {});
+                // Fetch bond to get sellerUid
+                FirebaseDB.getBond(bondId).then(bond => {
+                    if (bond?.sellerUid) {
+                        FirebaseDB.addNotification(bond.sellerUid, {
+                            type: 'dispute',
+                            title: '⚠️ Quality Dispute Filed',
+                            body: `A buyer has filed a dispute on "${bond.listingTitle || 'your listing'}". Bond funds are frozen pending review.`,
+                            bondId
+                        }).catch(() => {});
+                    }
+                }).catch(() => {});
+            }
+
             window.showToast?.('Dispute submitted. A mediator will review within 48 hours.', 'success');
             setTimeout(() => {
                 // Return to the listing if we have context, else radar
@@ -253,6 +274,7 @@ export class DisputeScreen {
             }
         }
     }
+
 
     onActivate(params = {}) {
         // Store context for this dispute flow

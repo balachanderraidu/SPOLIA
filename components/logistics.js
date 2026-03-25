@@ -149,9 +149,11 @@ export class LogisticsScreen {
     }
 
     _bindEvents() {
-        // Back button
+        // Back button — go to bond-detail if we have a bondId, else material-detail or radar
         this.el.querySelector('#back-btn')?.addEventListener('click', () => {
-            if (this.listingId) {
+            if (this.bondId) {
+                window.navigate?.('bond-detail', { bondId: this.bondId });
+            } else if (this.listingId) {
                 window.navigate?.('material-detail', { listingId: this.listingId });
             } else {
                 window.navigate?.('radar');
@@ -175,12 +177,12 @@ export class LogisticsScreen {
         // Confirm & book
         this.el.querySelector('#confirm-logistics')?.addEventListener('click', () => this._confirmBooking());
 
-        // View bond details
+        // View bond details — goes to bond-detail screen
         this.el.querySelector('#view-bond-btn')?.addEventListener('click', () => {
-            if (this.listingId) {
-                window.navigate?.('material-detail', { listingId: this.listingId });
+            if (this.bondId) {
+                window.navigate?.('bond-detail', { bondId: this.bondId });
             } else {
-                window.showToast?.('Bond details: ' + (this.bondId || 'N/A'), 'info');
+                window.showToast?.('No active bond found.', 'info');
             }
         });
     }

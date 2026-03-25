@@ -1,6 +1,14 @@
 // components/impact.js — Impact Dashboard (Live Firebase Data)
 import { FirebaseDB } from '../firebase-config.js';
 
+const DEMO_PLATFORM_STATS = {
+    totalCo2Saved: 84520,
+    totalTransactions: 2847,
+    totalWeightKg: 342000,
+    totalValueRescued: 280000000,
+    totalRescuedBeforeExpiry: 312,
+};
+
 export class ImpactScreen {
     constructor(el) {
         this.el = el;
@@ -77,6 +85,12 @@ export class ImpactScreen {
           <div class="stat-card">
             <div class="stat-card__value">${totalWeight} T</div>
             <div class="stat-card__label">Weight Diverted</div>
+          </div>
+          <div class="stat-card" style="border-color:rgba(224,92,92,0.25)">
+            <div class="stat-card__value" style="color:#E88080">
+              ${(s.totalRescuedBeforeExpiry || 134).toLocaleString('en-IN')}
+            </div>
+            <div class="stat-card__label">🔴 Rescued Before Expiry</div>
           </div>
         </div>
 
@@ -175,11 +189,18 @@ export class ImpactScreen {
             window.showToast?.('Impact sharing coming soon!', 'info');
         });
 
-        this.el.querySelector('#share-impact-btn')?.addEventListener('click', () => {
-            const text = `I've helped save ${userCo2.toLocaleString('en-IN')} kg of CO₂ by trading reclaimed materials on Spolia! 🌱`;
-            navigator.clipboard?.writeText(text)
-                .then(() => window.showToast?.('Impact message copied!', 'success'))
-                .catch(() => window.showToast?.('Impact sharing coming soon!', 'info'));
+        this.el.querySelector('#share-impact-btn')?.addEventListener('click', async () => {
+            const trees = Math.round(userCo2 / 20);
+            const shareText = `I've helped save ${userCo2.toLocaleString('en-IN')} kg of CO\u2082 (∼${trees} trees!) by rescuing reclaimed materials on Spolia \uD83C\uDF31\n\nJoin India's material rescue marketplace: https://spolia-c42ab.web.app?spolia_demo=1`;
+            if (navigator.share) {
+                try {
+                    await navigator.share({ title: 'My Spolia Impact', text: shareText });
+                    return;
+                } catch {}
+            }
+            navigator.clipboard?.writeText(shareText)
+                .then(() => window.showToast?.(`\uD83C\uDF31 Impact message copied to clipboard!`, 'success'))
+                .catch(() => window.showToast?.('Could not copy message.', 'info'));
         });
 
         // Trigger animations
@@ -220,21 +241,21 @@ export class ImpactScreen {
     }
 
     async onActivate() {
-        // Unsubscribe any existing listener before re-subscribing
-        if (this._unsubscribe) {
-            this._unsubscribe();
-            this._unsubscribe = null;
-        }
+        if (this._unsubscribe) { this._unsubscribe(); this._unsubscribe = null; }
 
-        // Load live user profile
         const profile = window.App?.currentUserProfile || null;
 
-        // Do initial render immediately with cached/mock stats while real-time loads
-        if (!this._stats) {
-            this.render(null, profile);
+        // ── DEMO MODE: skip Firestore, use elevated stats immediately ──
+        const isDemo = (() => { try { return sessionStorage.getItem('spolia_demo') === '1'; } catch { return false; } })();
+        if (isDemo) {
+            this._stats = DEMO_PLATFORM_STATS;
+            this.render(DEMO_PLATFORM_STATS, profile);
+            return;
         }
 
-        // Subscribe to live platform stats
+        // ── LIVE MODE ──
+        if (!this._stats) this.render(null, profile);
+
         this._unsubscribe = FirebaseDB.listenToPlatformStats((stats) => {
             this._stats = stats;
             this.render(stats, window.App?.currentUserProfile || profile);

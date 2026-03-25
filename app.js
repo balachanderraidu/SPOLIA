@@ -19,7 +19,7 @@ function isDemoMode() {
 }
 const DEMO_MODE = isDemoMode();
 
-import { FirebaseAuth, FirebaseDB, MOCK_USER_PROFILE } from './firebase-config.js';
+import { FirebaseAuth, FirebaseDB, MOCK_USER_PROFILE, MOCK_NOTIFICATIONS, MOCK_BONDS } from './firebase-config.js';
 import { LoginScreen }        from './components/login.js';
 import { OnboardingScreen }   from './components/onboarding.js';
 import { RadarScreen }        from './components/radar.js';
@@ -33,7 +33,8 @@ import { DisputeScreen }      from './components/dispute.js';
 import { LogisticsScreen }    from './components/logistics.js';
 import { ListingCreateScreen } from './components/listing-create.js';
 import { BondDetailScreen }    from './components/bond-detail.js';
-
+import { ChatScreen }          from './components/chat.js';
+import { AdminScreen }         from './components/admin.js';
 
 // ── App State ──────────────────────────────────────────────────────
 const App = {
@@ -60,7 +61,9 @@ const App = {
         dispute:           { title: 'Report Issue',    component: DisputeScreen },
         logistics:         { title: 'Pickup Route',    component: LogisticsScreen },
         'listing-create':  { title: 'Create Listing',  component: ListingCreateScreen },
-        'bond-detail':     { title: 'Bond Details',    component: BondDetailScreen }
+        'bond-detail':     { title: 'Bond Details',    component: BondDetailScreen },
+        'chat':            { title: 'Bond Chat',        component: ChatScreen, hideNav: true },
+        'admin':           { title: 'Admin Center',    component: AdminScreen, hideNav: true }
     }
 };
 
@@ -102,6 +105,12 @@ function _activateScreen(routeName, params = {}) {
 
     App.previousRoute = App.currentRoute;
     App.currentRoute = routeName;
+
+    // Lifecycle: deactivate previous screen
+    if (App.previousRoute && App.previousRoute !== routeName) {
+        const prevInstance = App.screenInstances[App.previousRoute];
+        if (prevInstance?.onDeactivate) prevInstance.onDeactivate();
+    }
 
     const next = document.getElementById(`screen-${routeName}`);
     if (next) next.classList.add('active');
@@ -164,12 +173,12 @@ window.addEventListener('beforeinstallprompt', (e) => {
     e.preventDefault();
     deferredInstallPrompt = e;
     const banner = document.getElementById('install-banner');
-    if (banner) banner.removeAttribute('hidden');
+    if (banner) banner.style.display = 'flex';
 });
 
 window.addEventListener('appinstalled', () => {
     const banner = document.getElementById('install-banner');
-    if (banner) banner.setAttribute('hidden', '');
+    if (banner) banner.style.display = 'none';
     deferredInstallPrompt = null;
     console.log('[PWA] App installed successfully.');
 });
@@ -181,8 +190,14 @@ export function triggerInstall() {
             console.log('[PWA] User choice:', choice.outcome);
             deferredInstallPrompt = null;
             const banner = document.getElementById('install-banner');
-            if (banner) banner.setAttribute('hidden', '');
+            if (banner) banner.style.display = 'none';
         });
+        return;
+    }
+
+    // Already installed in standalone mode
+    if (window.matchMedia('(display-mode: standalone)').matches || navigator.standalone) {
+        showToast('Spolia is already installed on your home screen! ✓', 'success');
         return;
     }
 
@@ -209,6 +224,7 @@ export function triggerInstall() {
     document.body.appendChild(guide);
 }
 window.triggerInstall = triggerInstall;
+
 
 
 
@@ -262,6 +278,30 @@ function buildNav() {
 // This is the single source of truth for navigation decisions.
 // It fires once on page load and again whenever auth state changes.
 function setupAuthStateListener() {
+    if (DEMO_MODE) {
+        App.currentUser = { uid: MOCK_USER_PROFILE.uid, displayName: MOCK_USER_PROFILE.displayName, email: MOCK_USER_PROFILE.email, photoURL: MOCK_USER_PROFILE.photoURL };
+        App.isAuthenticated = true;
+        App.currentUserProfile = MOCK_USER_PROFILE;
+        _activateScreen('radar', {});
+
+        // Wire mock notifications into the radar bell (3 unread)
+        setTimeout(() => {
+            const radarInst = App.screenInstances['radar'];
+            if (radarInst) {
+                radarInst._notifications = MOCK_NOTIFICATIONS;
+                radarInst._unreadCount = MOCK_NOTIFICATIONS.filter(n => !n.read).length;
+                radarInst._updateBellBadge();
+            }
+
+            // Wire notification dot on profile nav item
+            const dot = document.querySelector('.nav-item[data-route="profile"] .nav-item__dot');
+            if (dot) {
+                dot.style.cssText = 'display:block;width:8px;height:8px;border-radius:50%;background:#E05C5C;position:absolute;top:4px;right:4px';
+            }
+        }, 600);
+        return;
+    }
+
     FirebaseAuth.onAuthStateChanged(async (user) => {
         if (!user) {
             // Not signed in — show login
@@ -275,13 +315,6 @@ function setupAuthStateListener() {
         // User is signed in
         App.currentUser = user;
         App.isAuthenticated = true;
-
-        // Demo mode bypasses profile check — go straight to radar
-        if (DEMO_MODE) {
-            App.currentUserProfile = MOCK_USER_PROFILE;
-            _activateScreen('radar', {});
-            return;
-        }
 
         // Silently upsert the basic auth profile (displayName, email, photoURL)
         try {
@@ -304,11 +337,35 @@ function setupAuthStateListener() {
             } else {
                 // Fully onboarded — go to the app
                 _activateScreen('radar', {});
+
+                // Seed platformStats if not yet created (non-blocking)
+                FirebaseDB.initPlatformStats().catch(() => {});
+
+                // ── Notification badge wiring ──────────────────────────────
+                // Subscribe to unread count and update the profile nav dot
+                if (App._notifUnsubscribe) App._notifUnsubscribe();
+                App._notifUnsubscribe = FirebaseDB.listenToNotifications(user.uid, (notifs) => {
+                    const unread = notifs.filter(n => !n.read).length;
+                    const dot = document.querySelector('.nav-item[data-route="profile"] .nav-item__dot');
+                    if (dot) {
+                        dot.style.cssText = unread > 0
+                            ? `display:block;width:8px;height:8px;border-radius:50%;background:#E05C5C;position:absolute;top:4px;right:4px`
+                            : 'display:none';
+                    }
+                });
+
+                // ── Push Notifications ─────────────────────────────────────
+                // Request push permissions and save FCM token for background alerts
+                FirebaseDB.setupPushNotifications(user.uid).catch(() => {});
             }
         } catch (err) {
             console.warn('[App] Profile fetch failed — routing to radar anyway:', err);
+
             _activateScreen('radar', {});
         }
+
+        // Clean up notification subscription on sign-out
+        App._notifUnsubscribe = App._notifUnsubscribe || null;
     });
 }
 
@@ -338,7 +395,8 @@ async function init() {
     // (must be in init() not DOMContentLoaded because app.js is dynamically imported)
     document.getElementById('install-btn')?.addEventListener('click', triggerInstall);
     document.getElementById('install-dismiss')?.addEventListener('click', () => {
-        document.getElementById('install-banner')?.setAttribute('hidden', '');
+        const banner = document.getElementById('install-banner');
+        if (banner) banner.style.display = 'none';
     });
 
     window.navigate = navigate;

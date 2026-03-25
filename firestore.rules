@@ -3,17 +3,12 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     // ── Users ──────────────────────────────────────────────────────
-    // Authenticated users can read/write their own profile.
-    // Using `request.auth != null` broadly first to unblock loading,
-    // will narrow back to uid-scoped once profile loads correctly.
     match /users/{uid} {
       allow read: if request.auth != null;
       allow write: if request.auth != null && request.auth.uid == uid;
     }
 
     // ── Listings ───────────────────────────────────────────────────
-    // Anyone authenticated can read listings.
-    // Only the owner can create/update/delete their listing.
     match /listings/{listingId} {
       allow read: if request.auth != null;
       allow create: if request.auth != null;
@@ -22,7 +17,6 @@ service cloud.firestore {
     }
 
     // ── Bonds ─────────────────────────────────────────────────────
-    // Auth users can read bonds they are party to, and create new ones.
     match /bonds/{bondId} {
       allow read: if request.auth != null;
       allow create: if request.auth != null;
@@ -37,20 +31,75 @@ service cloud.firestore {
       allow create: if request.auth != null;
     }
 
+    // ── Walled Chat ────────────────────────────────────────────────
+    // Chat room ID equals bondId. Only bond participants may access.
+    match /chats/{chatId} {
+      // A user can read/write the chat room if they are a participant
+      allow read, write: if request.auth != null
+        && request.auth.uid in resource.data.participants;
+      // Allow create (first time room is made by one of the participants)
+      allow create: if request.auth != null;
+
+      // Messages subcollection — participants only, write-once (no edits/deletes)
+      match /messages/{msgId} {
+        allow read: if request.auth != null
+          && request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participants;
+        allow create: if request.auth != null
+          && (request.resource.data.senderUid == request.auth.uid
+           || request.resource.data.senderUid == null); // null = system msg
+        allow update, delete: if false; // messages are immutable
+      }
+    }
+
     // ── Verification Requests ─────────────────────────────────────
-    // Any authenticated user can create a verification request.
-    // Only they can read their own.
     match /verificationRequests/{reqId} {
       allow create: if request.auth != null;
       allow read: if request.auth != null
         && request.auth.uid == resource.data.uid;
     }
 
+    // ── Withdrawals ───────────────────────────────────────────────
+    match /withdrawals/{reqId} {
+      allow create: if request.auth != null;
+      allow read: if request.auth != null
+        && request.auth.uid == resource.data.uid;
+    }
+
+    // ── Notifications ─────────────────────────────────────────────
+    // /notifications/{uid}/items/{notifId}
+    // Users can only read and update their own notifications.
+    // System (or other users via addNotification) can create.
+    match /notifications/{uid}/items/{notifId} {
+      allow read: if request.auth != null
+        && request.auth.uid == uid;
+      allow create: if request.auth != null; // any auth user can create a notif for another
+      allow update: if request.auth != null
+        && request.auth.uid == uid;           // only the recipient marks as read
+      allow delete: if false;
+    }
+
     // ── Platform Stats ────────────────────────────────────────────
-    // Anyone authenticated can read. Only backend (Cloud Functions) writes.
+    // Any authenticated user can read stats.
+    // Only create (seed) and update (increment) allowed — delete forbidden.
     match /platformStats/{doc} {
-      allow read: if request.auth != null;
-      allow write: if request.auth != null; // Tighten this when Cloud Functions are set up
+      allow read:   if request.auth != null;
+      allow create: if request.auth != null;
+      allow update: if request.auth != null;
+      allow delete: if false;
+    }
+
+    // ── Seller Ratings ────────────────────────────────────────────
+    // Any authenticated user can create a rating (after a bond completes).
+    // Ratings are readable by all authenticated users (for trust signals).
+    // Ratings are immutable — no update or delete.
+    match /ratings/{ratingId} {
+      allow read:   if request.auth != null;
+      allow create: if request.auth != null
+        && request.resource.data.raterUid == request.auth.uid
+        && request.resource.data.rating is int
+        && request.resource.data.rating >= 1
+        && request.resource.data.rating <= 5;
+      allow update, delete: if false;
     }
   }
 }

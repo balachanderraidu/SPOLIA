@@ -113,6 +113,10 @@ export class ScannerScreen {
             video.style.display = 'none';
             cameraEl.style.background = 'linear-gradient(135deg, #1a1a1a, #0d0d0d)';
         }
+
+        // Hint message
+        const hint = this.el.querySelector('#scanner-hint-text');
+        if (hint) hint.textContent = '🔍 Point at any material to scan — demo mode active';
     }
 
     _bindCapture() {
@@ -130,8 +134,28 @@ export class ScannerScreen {
         if (captureBtn) captureBtn.style.transform = 'translateX(-50%) scale(0.9)';
         if (hintText) hintText.textContent = 'Analysing material...';
 
+        // ── DEMO MODE: show a realistic scan result without real camera ───────────
+        const isDemo = (() => { try { return sessionStorage.getItem('spolia_demo') === '1'; } catch { return false; } })();
+        if (isDemo) {
+            await new Promise(r => setTimeout(r, 1800)); // realistic delay
+            this.scanning = false;
+            if (captureBtn) captureBtn.style.transform = 'translateX(-50%) scale(1)';
+            const demoResult = {
+                materialType: 'Reclaimed Structural Steel (ISMB 250)',
+                condition: 'Good — surface rust only, structurally sound',
+                confidence: 0.94,
+                estimatedQuantity: { value: 6, unit: 'pieces' },
+                estimatedPricePerUnit: 11500,
+                co2SavedKg: 1800,
+                description: 'AI identified this as ISMB 250-grade structural I-beams commonly found in demolition projects. Surface oxidation visible but cross-section integrity appears intact. Recommend third-party load test before structural reuse. Suitable for mezzanine frames, scaffolding, or heavy furniture fabrication.'
+            };
+            window._lastScanResult = demoResult;
+            this._showResult(demoResult);
+            return;
+        }
+
+        // ── LIVE MODE ─────────────────────────────────────────────────────────────
         try {
-            // Capture frame from video
             const video = this.el.querySelector('#camera-video');
             let base64 = '';
             if (video?.srcObject) {
@@ -144,10 +168,7 @@ export class ScannerScreen {
 
             const result = await scanMaterial(base64);
             this.scanResult = result;
-
-            // FIX: store scan result globally so listing-create can receive it
             window._lastScanResult = result;
-
             this._showResult(result);
 
         } catch (err) {

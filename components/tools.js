@@ -106,8 +106,8 @@ export class ToolsScreen {
                   🔍 Find This Qty
                 </button>
                 <button class="btn btn--outline" style="height:36px;font-size:12px"
-                  onclick="window.showToast('Post listing coming soon','info')">
-                  📝 Post This Qty
+                  onclick="window.navigate('listing-create')">
+                  📝 Post Material
                 </button>
               </div>
             </div>
@@ -251,5 +251,24 @@ export class ToolsScreen {
         else { icon.textContent = '🚜'; name.textContent = 'Dumper / Truck'; cost.textContent = '₹6,000'; }
     }
 
-    onActivate() { }
+    onActivate() {
+        // Demo mode: pre-fill the calculator with a realistic scenario
+        const isDemo = (() => { try { return sessionStorage.getItem('spolia_demo') === '1'; } catch { return false; } })();
+        if (!isDemo) return;
+
+        // Pre-fill: Marble/Stone slab scenario (12×8×0.5 ft)
+        const matSel = this.el.querySelector('#calc-mat');
+        const lInp = this.el.querySelector('#calc-l');
+        const wInp = this.el.querySelector('#calc-w');
+        const dInp = this.el.querySelector('#calc-d');
+        if (matSel) matSel.value = '2700'; // Marble / Stone
+        if (lInp) lInp.value = '12';
+        if (wInp) wInp.value = '8';
+        if (dInp) dInp.value = '0.5';
+
+        // Auto-calculate after a short delay for effect
+        setTimeout(() => {
+            this.el.querySelector('#calc-weight-btn')?.click();
+        }, 400);
+    }
 }

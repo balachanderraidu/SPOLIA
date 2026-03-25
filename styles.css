@@ -135,6 +135,14 @@ a {
   display: none;
 }
 
+/* Full-height screens manage their own layout (e.g. chat) */
+#screen-chat {
+  padding-top: 0;
+  overflow: hidden;
+}
+
+
+
 .screen.active {
   display: block;
   animation: screen-in 280ms ease-out both;
@@ -669,6 +677,37 @@ a {
   transform: scale(0.98);
   box-shadow: 0 0 0 3px rgba(255, 215, 0, 0.2);
 }
+
+/* Primary (green — confirm / release funds) */
+.btn--primary {
+  background: linear-gradient(135deg, #4CAF82, #2E7D52);
+  color: #fff;
+  box-shadow: 0 4px 12px rgba(76, 175, 130, 0.25);
+}
+
+.btn--primary:active {
+  transform: scale(0.98);
+  box-shadow: 0 2px 6px rgba(76, 175, 130, 0.15);
+}
+
+.btn--primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Secondary (muted outline — chat, secondary actions) */
+.btn--secondary {
+  background: var(--color-bg-elevated);
+  color: var(--color-text-secondary);
+  border: 1px solid var(--color-border);
+}
+
+.btn--secondary:active {
+  border-color: var(--color-gold);
+  color: var(--color-gold);
+}
+
+
 
 /* ── AI Scanner Screen ────────────────────────────────────────── */
 .scanner-screen {
@@ -1487,3 +1526,134 @@ a {
   width: 0;
   height: 0;
 }
+
+/* ── Nav item — relative for notification dot ─────────────────── */
+.nav-item {
+  position: relative;
+}
+
+.nav-item__dot {
+  display: none;
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #E05C5C;
+  box-shadow: 0 0 4px rgba(224,92,92,0.6);
+}
+
+
+/* ── Core Animations ──────────────────────────────────────────── */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(40px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes pulse {
+  0%,100% { opacity: 1; }
+  50%      { opacity: 0.6; }
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes ringFill {
+  from { stroke-dashoffset: 597; }
+  to   { stroke-dashoffset: 0; }
+}
+
+/* ── Material card entrance ───────────────────────────────────── */
+.material-card {
+  animation: fadeIn 400ms ease both;
+}
+
+/* ── Chat - Walled Messaging UI ──────────────────────────────── */
+.chat-bubble {
+  max-width: 75%;
+  padding: 9px 13px;
+  border-radius: 16px;
+  font: 400 14px/1.5 var(--font-body);
+  word-break: break-word;
+  position: relative;
+}
+
+.chat-bubble--mine {
+  background: var(--color-gold);
+  color: #0D0D0D;
+  border-bottom-right-radius: 4px;
+  align-self: flex-end;
+}
+
+.chat-bubble--theirs {
+  background: var(--color-bg-elevated);
+  color: var(--color-text-primary);
+  border: 1px solid var(--color-border);
+  border-bottom-left-radius: 4px;
+  align-self: flex-start;
+}
+
+.chat-bubble--system {
+  background: rgba(255,215,0,0.07);
+  color: var(--color-text-muted);
+  border: 1px solid rgba(255,215,0,0.15);
+  border-radius: 8px;
+  font-size: 12px;
+  text-align: center;
+  align-self: center;
+  max-width: 90%;
+  padding: 6px 12px;
+}
+
+.chat-bubble__time {
+  font: 400 10px/1 var(--font-body);
+  color: rgba(0,0,0,0.45);
+  margin-top: 3px;
+  text-align: right;
+}
+
+.chat-bubble--theirs .chat-bubble__time {
+  color: var(--color-text-muted);
+  text-align: left;
+}
+
+/* ── Urgency badge pulse (critical items) ─────────────────────── */
+.urgency-critical {
+  animation: pulse 1.8s ease infinite;
+}
+
+/* ── Bond detail status badges ────────────────────────────────── */
+.bond-status {
+  display: inline-block;
+  padding: 3px 8px;
+  border-radius: 20px;
+  font: 600 11px/1 var(--font-body);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* ── Chip row urgent variant ──────────────────────────────────── */
+.chip-row .chip[data-filter="urgent"] {
+  border-color: rgba(224, 92, 92, 0.4);
+  color: #E05C5C;
+}
+
+.chip-row .chip[data-filter="urgent"].active {
+  background: rgba(224, 92, 92, 0.15);
+  border-color: #E05C5C;
+  color: #E05C5C;
+}
+
+

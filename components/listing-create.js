@@ -2,6 +2,7 @@
 // Design from Stitch: SPOLIA Create Listing Form
 import { FirebaseDB, FirebaseStorage } from '../firebase-config.js';
 import { estimateCO2Savings } from '../utils/gemini.js';
+import { EXPIRY_MATERIALS } from '../utils/expiry.js';
 
 const MATERIAL_TYPES = [
     'stone', 'marble', 'steel', 'wood', 'brick', 'glass',
@@ -97,6 +98,20 @@ export class ListingCreateScreen {
           <label class="form-label" for="listing-location">Pickup Location</label>
           <input class="form-input" id="listing-location" type="text"
             placeholder="e.g. Bandra West, Mumbai">
+        </div>
+
+        <!-- Near-Expiry Rescue Field (shown for perishable materials) -->
+        <div class="form-field" id="expiry-field" style="display:none">
+          <label class="form-label" for="listing-expiry" style="display:flex;align-items:center;gap:6px">
+            <span style="color:#FFA000">⏳</span> Use-By / Batch Expiry Date
+            <span style="font:400 11px Inter;color:var(--color-text-muted);margin-left:auto">Optional</span>
+          </label>
+          <input class="form-input" id="listing-expiry" type="date"
+            style="color-scheme:dark"
+            min="${new Date().toISOString().split('T')[0]}">
+          <p style="font:var(--text-caption);color:#FFA000;margin:4px var(--space-md) 0;line-height:1.4">
+            🔴 Listings expiring within 10 days get an <strong>URGENT RESCUE</strong> badge and appear first on the Radar.
+          </p>
         </div>
 
         <!-- Bond Toggle -->
@@ -238,6 +253,37 @@ export class ListingCreateScreen {
         qtyInput?.addEventListener('input', updateCO2);
         typeSelect?.addEventListener('change', updateCO2);
         unitSelect?.addEventListener('change', updateCO2);
+        // Show expiry field for perishable materials
+        typeSelect?.addEventListener('change', () => this._showExpiryField(typeSelect.value));
+        if (typeSelect) this._showExpiryField(typeSelect.value); // on load
+
+        // AI price discount hint on expiry date selection
+        const expiryInput = this.el.querySelector('#listing-expiry');
+        expiryInput?.addEventListener('change', () => {
+            const expiryVal = expiryInput.value;
+            if (!expiryVal) return;
+            const daysLeft = Math.ceil((new Date(expiryVal) - Date.now()) / 86400000);
+            const priceInput = this.el.querySelector('#listing-price');
+            const currentPrice = parseFloat(priceInput?.value) || 0;
+            let hint = '';
+            if (daysLeft <= 3) {
+                hint = `🔴 Critical — ${daysLeft} day(s) left. Consider pricing 40-50% below MRP to rescue fast.`;
+            } else if (daysLeft <= 10) {
+                hint = `🟠 Urgent — ${daysLeft} days left. A 25-35% discount drives 3× faster pickups.`;
+            } else if (daysLeft <= 30) {
+                hint = `🟡 ${daysLeft} days left. A 15-25% discount earns the RESCUE badge and Radar priority.`;
+            }
+            // Show/update hint
+            let hintEl = this.el.querySelector('#expiry-price-hint');
+            if (!hintEl) {
+                hintEl = document.createElement('p');
+                hintEl.id = 'expiry-price-hint';
+                hintEl.style.cssText = 'font:400 11px/1.5 Inter;color:#FFA000;margin:4px var(--space-md) 0';
+                expiryInput.parentElement?.appendChild(hintEl);
+            }
+            hintEl.textContent = hint;
+        });
+
 
         // Publish
         this.el.querySelector('#publish-btn')?.addEventListener('click', () => this._publish());
@@ -262,6 +308,11 @@ export class ListingCreateScreen {
         });
     }
 
+    _showExpiryField(type) {
+        const field = this.el.querySelector('#expiry-field');
+        if (field) field.style.display = EXPIRY_MATERIALS.has(type) ? 'block' : 'none';
+    }
+
     async _publish() {
         const title = this.el.querySelector('#listing-title')?.value?.trim();
         const type = this.el.querySelector('#listing-type')?.value;
@@ -270,6 +321,7 @@ export class ListingCreateScreen {
         const price = parseFloat(this.el.querySelector('#listing-price')?.value);
         const desc = this.el.querySelector('#listing-desc')?.value?.trim();
         const location = this.el.querySelector('#listing-location')?.value?.trim();
+        const expiryStr = this.el.querySelector('#listing-expiry')?.value || null;
 
         if (!title) { window.showToast?.('Please enter a material title', 'error'); return; }
         if (!qty || qty <= 0) { window.showToast?.('Please enter a valid quantity', 'error'); return; }
@@ -277,6 +329,16 @@ export class ListingCreateScreen {
 
         const btn = this.el.querySelector('#publish-btn');
         if (btn) { btn.textContent = 'Publishing...'; btn.disabled = true; }
+
+        // ── DEMO MODE: show realistic feedback without touching Firestore
+        const isDemo = (() => { try { return sessionStorage.getItem('spolia_demo') === '1'; } catch { return false; } })();
+        if (isDemo) {
+            await new Promise(r => setTimeout(r, 1400));
+            if (btn) { btn.textContent = '✓ Listed!'; }
+            window.showToast?.('🔒 Secure a Spolia Bond to publish live listings. This is a demo — your listing is preview-only.', 'info', 5000);
+            setTimeout(() => window.navigate?.('radar'), 2500);
+            return;
+        }
 
         try {
             // Upload photos to Firebase Storage
@@ -290,6 +352,14 @@ export class ListingCreateScreen {
             // CO2 estimate
             const co2Saved = estimateCO2Savings(type, qty, unit);
 
+            // Compute expiry + urgency
+            const expiryDate = expiryStr ? new Date(expiryStr).toISOString() : null;
+            const now = Date.now();
+            const daysToExpiry = expiryDate
+                ? Math.ceil((new Date(expiryDate) - now) / 86400000)
+                : null;
+            const isUrgentRescue = daysToExpiry !== null && daysToExpiry <= 10;
+
             // Create listing in Firestore
             const listingId = await FirebaseDB.createListing({
                 title, type, quantity: qty, unit,
@@ -299,6 +369,9 @@ export class ListingCreateScreen {
                 bondProtected: this.bondEnabled,
                 co2Saved,
                 imageUrls,
+                expiryDate,
+                daysToExpiry,
+                isUrgentRescue,
                 verified: false   // pending manual verification
             });
 
@@ -313,10 +386,26 @@ export class ListingCreateScreen {
     }
 
     onActivate(params = {}) {
+        const isDemo = (() => { try { return sessionStorage.getItem('spolia_demo') === '1'; } catch { return false; } })();
+
         if (params.scanResult) {
             this.photos = [];
             this.scanData = params.scanResult;
             this.render(params.scanResult);
+        } else if (isDemo && !this.scanData) {
+            // Pre-fill with the same demo scan result the scanner shows
+            const demoScan = {
+                materialType: 'Reclaimed Structural Steel (ISMB 250)',
+                condition: 'Good — surface rust only, structurally sound',
+                confidence: 0.94,
+                estimatedQuantity: { value: 6, unit: 'pieces' },
+                estimatedPricePerUnit: 11500,
+                co2SavedKg: 1800,
+                category: 'steel',
+                description: 'AI identified this as ISMB 250-grade structural I-beams from demolition projects. Surface oxidation visible but cross-section integrity intact. Suitable for mezzanine frames, scaffolding, or heavy furniture fabrication.'
+            };
+            this.scanData = demoScan;
+            this.render(demoScan);
         }
     }
 }

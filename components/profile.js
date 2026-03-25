@@ -1,5 +1,5 @@
 // components/profile.js — User Profile (Stitch-designed + Live Firebase)
-import { FirebaseAuth, FirebaseDB } from '../firebase-config.js';
+import { FirebaseAuth, FirebaseDB, MOCK_BONDS, MOCK_LISTINGS } from '../firebase-config.js';
 
 const ROLE_MAP = {
     architect:  { label: 'ARCHITECT',         icon: '🏛️', color: '#4B9FD4' },
@@ -106,12 +106,26 @@ export class ProfileScreen {
                 font:600 10px/1 Inter,sans-serif;padding:5px 10px;border-radius:999px;letter-spacing:0.04em">${u.credentialNumber}</span>` : ''}
           </div>
 
-          <!-- Bond rating -->
-          ${u.bondRating ? `
-            <div style="display:flex;align-items:center;justify-content:center;gap:4px">
-              <span style="color:#FFD700;font-size:13px">★★★★${u.bondRating >= 5 ? '★' : '☆'}</span>
-              <span style="font:400 12px/1 Inter,sans-serif;color:#5C5647">${u.bondRating} Bond Rating</span>
-            </div>` : ''}
+          <!-- Seller rating (computed avg from Firestore stats) -->
+          ${(() => {
+            const ratingCount = u.stats?.ratingCount || 0;
+            const ratingSum   = u.stats?.ratingSum   || 0;
+            const avg = ratingCount > 0 ? (ratingSum / ratingCount).toFixed(1) : null;
+            const rescuedCount = u.stats?.rescuedBeforeExpiry || 0;
+            const stars = avg ? ('★'.repeat(Math.round(parseFloat(avg))) + '☆'.repeat(5 - Math.round(parseFloat(avg)))) : null;
+            return stars ? `
+              <div style="display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:8px;margin-top:6px">
+                <div style="display:flex;align-items:center;gap:4px">
+                  <span style="color:#FFD700;font-size:14px;letter-spacing:1px">${stars}</span>
+                  <span style="font:600 12px/1 Inter,sans-serif;color:#FFD700">${avg}</span>
+                  <span style="font:400 11px/1 Inter,sans-serif;color:#5C5647">(${ratingCount} review${ratingCount !== 1 ? 's' : ''})</span>
+                </div>
+                ${rescuedCount > 0 ? `<span style="font:600 10px/1 Inter,sans-serif;color:#E05C5C;background:rgba(224,92,92,0.1);padding:3px 8px;border-radius:99px;border:1px solid rgba(224,92,92,0.25)">🔴 ${rescuedCount} rescued</span>` : ''}
+              </div>` : (rescuedCount > 0 ? `
+              <div style="display:flex;align-items:center;justify-content:center;margin-top:6px">
+                <span style="font:600 10px/1 Inter,sans-serif;color:#E05C5C;background:rgba(224,92,92,0.1);padding:3px 8px;border-radius:99px;border:1px solid rgba(224,92,92,0.25)">🔴 ${rescuedCount} rescued</span>
+              </div>` : '');
+          })()}
         </div>
 
         <!-- Wallet Card -->
@@ -137,7 +151,8 @@ export class ProfileScreen {
           border:1px solid rgba(76,175,130,0.18);border-radius:20px;padding:18px 20px">
           <div style="font:600 11px/1 Inter,sans-serif;color:#4CAF82;letter-spacing:0.1em;text-transform:uppercase;margin-bottom:16px">🌱 Your Impact</div>
           <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;text-align:center">
-            ${[
+            ${
+                [
                 { label: 'CO₂ Saved',   value: `${((impact.co2Saved || 0)/1000).toFixed(1)}T`,  color: '#4CAF82' },
                 { label: 'Transactions', value: `${impact.transactions || 0}`,                   color: '#4CAF82' },
                 { label: 'Diverted',    value: `${((impact.weightRescued || 0)/1000).toFixed(2)}T`, color: '#4CAF82' },
@@ -149,7 +164,20 @@ export class ProfileScreen {
           </div>
         </div>
 
-        <!-- My Listings -->
+        <!-- Bio Card -->
+        ${u.bio ? `
+        <div style="margin:0 16px 20px;background:#111;border:1px solid #2A2A2A;border-radius:20px;padding:18px 20px">
+          <div style="font:600 11px/1 Inter,sans-serif;color:#A09882;letter-spacing:0.1em;text-transform:uppercase;margin-bottom:10px">About</div>
+          <div style="font:400 13px/1.6 Inter,sans-serif;color:#C8C0AE;margin-bottom:12px">${u.bio}</div>
+          <div style="display:flex;flex-wrap:wrap;gap:8px">
+            <span style="display:flex;align-items:center;gap:4px;font:400 11px/1 Inter;color:#5C5647">
+              📅 Member since ${u.joinedAt ? new Date(u.joinedAt).toLocaleDateString('en-IN', { month: 'long', year: 'numeric' }) : 'N/A'}
+            </span>
+            ${u.city ? `<span style="display:flex;align-items:center;gap:4px;font:400 11px/1 Inter;color:#5C5647">📍 ${u.city}</span>` : ''}
+            ${(u.stats?.rescuedBeforeExpiry || 0) > 0 ? `<span style="font:600 10px/1 Inter;color:#E05C5C;background:rgba(224,92,92,0.1);padding:3px 8px;border-radius:99px;border:1px solid rgba(224,92,92,0.25)">🔴 ${u.stats.rescuedBeforeExpiry} Rescues</span>` : ''}
+          </div>
+        </div>` : ''}
+
         <div style="display:flex;align-items:center;justify-content:space-between;padding:0 20px;margin-bottom:12px">
           <span style="font:600 14px/1 Inter,sans-serif;color:#F5F0E8">My Listings</span>
           <span id="view-all-btn" style="font:400 12px/1 Inter,sans-serif;color:#FFD700;cursor:pointer">View All</span>
@@ -171,12 +199,18 @@ export class ProfileScreen {
           <span style="font:600 14px/1 Inter,sans-serif;color:#F5F0E8">Account</span>
         </div>
         <div style="margin:0 16px;background:#1A1A1A;border:1px solid #2A2A2A;border-radius:20px;overflow:hidden;margin-bottom:32px">
-          ${[
-              { id: 'docs-btn',       icon: '📄', label: 'Verification Documents' },
-              { id: 'notifs-btn',     icon: '🔔', label: 'Notification Preferences' },
-              { id: 'refer-btn',      icon: '👥', label: 'Refer a Colleague' },
-              { id: 'install-app-btn',icon: '📲', label: 'Install Spolia App' },
-          ].map((item, i) => `
+          ${(() => {
+              const btns = [
+                  { id: 'docs-btn',       icon: '📄', label: 'Verification Documents' },
+                  { id: 'notifs-btn',     icon: '🔔', label: 'Notification Preferences' },
+                  { id: 'refer-btn',      icon: '👥', label: 'Refer a Colleague' },
+                  { id: 'install-app-btn',icon: '📲', label: 'Install Spolia App' }
+              ];
+              if (u?.role === 'admin') {
+                  btns.unshift({ id: 'admin-btn', icon: '🛡️', label: 'Admin Center' });
+              }
+              return btns;
+          })().map((item, i) => `
             <button id="${item.id}" style="width:100%;display:flex;align-items:center;gap:14px;
               padding:16px 18px;background:none;border:none;border-bottom:1px solid #222;
               color:#F5F0E8;text-align:left;cursor:pointer;font:400 14px/1 Inter,sans-serif;
@@ -214,8 +248,32 @@ export class ProfileScreen {
           </div>`;
         }
 
+        const now = Date.now();
         const EMOJI = { stone:'🪨', marble:'🪨', steel:'⚙️', wood:'🪵', brick:'🧱', other:'📦', bulk:'📦', plumbing:'🔧', cement:'🏗️' };
-        return this.listings.slice(0, 4).map(l => `
+
+        // Surface expired-but-still-active listings for re-list nudge
+        const expiredListings = this.listings.filter(l => {
+            if (!l.expiryDate || l.status === 'sold') return false;
+            const exp = l.expiryDate?.toDate ? l.expiryDate.toDate() : new Date(l.expiryDate);
+            return isNaN(exp.getTime()) ? false : exp.getTime() < now;
+        });
+        const expiredBanners = expiredListings.map(l => `
+          <div style="grid-column:1/-1;background:rgba(224,92,92,0.08);border:1px solid rgba(224,92,92,0.4);
+            border-left:3px solid #E05C5C;border-radius:12px;padding:12px 14px;animation:pulse 2s ease infinite">
+            <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">
+              <span>🔴</span>
+              <span style="font:700 10px/1 Inter;color:#E05C5C;letter-spacing:0.06em;text-transform:uppercase">Rescue Missed — Expired</span>
+            </div>
+            <div style="font:600 12px/1.3 Inter;color:#F5F0E8;margin-bottom:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${l.title}</div>
+            <div style="font:400 11px/1.5 Inter;color:#A09882;margin-bottom:8px">Re-list at a discount — the material can still be rescued!</div>
+            <button onclick="window.navigate?.('listing-create')"
+              style="height:30px;padding:0 12px;border-radius:8px;border:1px solid rgba(224,92,92,0.5);
+                background:rgba(224,92,92,0.12);color:#E05C5C;font:600 10px/1 Inter;cursor:pointer">
+              🔄 Re-list with Discount
+            </button>
+          </div>`).join('');
+
+        return expiredBanners + this.listings.slice(0, 4).map(l => `
           <div onclick="window.navigate?.('material-detail',{listingId:'${l.id}'})"
             style="background:#1A1A1A;border:1px solid #2A2A2A;border-radius:16px;overflow:hidden;cursor:pointer">
             <div style="height:96px;background:#111;display:flex;align-items:center;justify-content:center;font-size:36px">
@@ -240,6 +298,13 @@ export class ProfileScreen {
         this.el.querySelector('#withdraw-btn')?.addEventListener('click', () =>
             this._openWithdrawalSheet());
 
+        // #bonds-btn — demo aware
+        this.el.querySelector('#bonds-btn')?.addEventListener('click', () => {
+            const isDemo = (() => { try { return sessionStorage.getItem('spolia_demo') === '1'; } catch { return false; } })();
+            if (isDemo) { this._openDemoBondsSheet(); return; }
+            window.navigate?.('bond-detail', { bondId: window.App?.currentUser?.uid });
+        });
+
         this.el.querySelector('#view-all-btn')?.addEventListener('click', () =>
             this._openViewAllSheet());
 
@@ -249,11 +314,18 @@ export class ProfileScreen {
         this.el.querySelector('#notifs-btn')?.addEventListener('click', () =>
             this._openNotifsSheet());
 
-        this.el.querySelector('#refer-btn')?.addEventListener('click', () => {
-            const url = `${window.location.origin}?ref=${this.profile?.uid || ''}`;
-            navigator.clipboard?.writeText(url)
-                .then(() => window.showToast?.('Referral link copied!', 'success'))
-                .catch(() => window.showToast?.('Referral link copied!', 'info'));
+        this.el.querySelector('#refer-btn')?.addEventListener('click', async () => {
+            const name = this.profile?.displayName?.split(' ')[0] || 'Arjun';
+            const shareText = `${name} invited you to Spolia — India's marketplace for reclaiming building materials from demolition & construction sites.\n\nRescue materials, save CO₂, and keep architecturally significant materials out of landfill.\n\nTry the demo: https://spolia-c42ab.web.app?spolia_demo=1`;
+            if (navigator.share) {
+                try {
+                    await navigator.share({ title: 'Join Spolia 🌱', text: shareText });
+                    return;
+                } catch {}
+            }
+            navigator.clipboard?.writeText(shareText)
+                .then(() => window.showToast?.('🌿 Referral message copied to clipboard!', 'success'))
+                .catch(() => window.showToast?.('demo.spolia.app?ref=yourid', 'info'));
         });
 
         this.el.querySelector('#install-app-btn')?.addEventListener('click', () => {
@@ -262,6 +334,10 @@ export class ProfileScreen {
             } else {
                 window.showToast?.('To install: tap Share → "Add to Home Screen" in your browser', 'info');
             }
+        });
+
+        this.el.querySelector('#admin-btn')?.addEventListener('click', () => {
+            window.navigate?.('admin');
         });
 
         this.el.querySelector('#settings-btn')?.addEventListener('click', () =>
@@ -277,6 +353,58 @@ export class ProfileScreen {
                 await window.signOut?.();
             }
         });
+    }
+
+    _openDemoBondsSheet() {
+        document.getElementById('bonds-sheet-overlay')?.remove();
+        const overlay = document.createElement('div');
+        overlay.id = 'bonds-sheet-overlay';
+        overlay.style.cssText = 'position:fixed;inset:0;z-index:700;background:rgba(0,0,0,0.7);backdrop-filter:blur(4px);display:flex;align-items:flex-end;justify-content:center;animation:fadeIn 200ms ease';
+
+        const STATUS_COLOR = { completed: '#4CAF82', active: '#FFD700', pending: '#FFA000' };
+        const STATUS_LABEL = { completed: '✅ Completed', active: '🔒 Active', pending: '⏳ Pending' };
+
+        const bondsHtml = MOCK_BONDS.map(b => {
+            const sc = STATUS_COLOR[b.status] || '#A09882';
+            const sl = STATUS_LABEL[b.status] || b.status;
+            const date = new Date(b.createdAt.seconds * 1000).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+            return `
+            <div onclick="window.navigate?.('bond-detail',{bondId:'${b.id}'})" style="
+                background:var(--color-bg-elevated);border:1px solid var(--color-border);
+                border-radius:14px;padding:14px 16px;margin-bottom:10px;cursor:pointer;
+                display:flex;align-items:center;gap:14px">
+              <div style="width:40px;height:40px;border-radius:10px;background:${sc}18;border:1px solid ${sc}40;
+                display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">🔒</div>
+              <div style="flex:1;min-width:0">
+                <div style="font:600 13px/1.3 Inter,sans-serif;color:var(--color-text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:3px">${b.listingTitle}</div>
+                <div style="font:400 11px/1 Inter,sans-serif;color:var(--color-text-muted)">${date} · ${b.sellerName}</div>
+              </div>
+              <div style="text-align:right;flex-shrink:0">
+                <div style="font:700 14px/1 Inter,sans-serif;color:var(--color-gold);margin-bottom:4px">₹${(b.bondAmount||0).toLocaleString('en-IN')}</div>
+                <span style="font:600 9px/1 Inter,sans-serif;color:${sc};background:${sc}18;padding:2px 7px;border-radius:99px;letter-spacing:0.05em">${sl}</span>
+              </div>
+            </div>`;
+        }).join('');
+
+        overlay.innerHTML = `
+          <div style="width:100%;max-width:480px;background:var(--color-bg-surface);
+            border-radius:24px 24px 0 0;border-top:1px solid var(--color-border);
+            padding:20px 20px max(24px, env(safe-area-inset-bottom));
+            animation:slideUp 300ms cubic-bezier(0.32,0.72,0,1)">
+            <div style="width:40px;height:4px;background:#2A2A2A;border-radius:2px;margin:0 auto 16px"></div>
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+              <h2 style="font:700 18px/1 var(--font-display);color:var(--color-gold)">My Spolia Bonds</h2>
+              <button id="bonds-close" style="width:32px;height:32px;background:var(--color-bg-elevated);border:1px solid var(--color-border);border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--color-text-secondary);font-size:14px">✕</button>
+            </div>
+            ${bondsHtml}
+            <div style="text-align:center;margin-top:16px">
+              <span style="font:400 11px/1 Inter;color:var(--color-text-muted)">Total CO₂ saved across all bonds: <strong style="color:var(--color-green)">608 kg</strong></span>
+            </div>
+          </div>`;
+
+        document.body.appendChild(overlay);
+        overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+        overlay.querySelector('#bonds-close')?.addEventListener('click', () => overlay.remove());
     }
 
     _openWithdrawalSheet() {
@@ -723,20 +851,52 @@ export class ProfileScreen {
 
         try {
             const bonds = await FirebaseDB.getMyBonds(this.user?.uid);
+            const currentUid = this.user?.uid;
             if (bonds.length === 0) {
-                listHtml = `<div style="text-align:center;padding:40px 20px;color:#A09882">No active bonds found.</div>`;
+                listHtml = `<div style="text-align:center;padding:40px 20px;color:#A09882">
+                  <div style="font-size:40px;margin-bottom:16px">🔒</div>
+                  No active bonds yet. Place a Spolia Bond from any listing to get started.
+                </div>`;
             } else {
+                const STATUS_COLOR = {
+                    pending: '#FFA000', active: '#4CAF82', confirmed: '#66BB6A',
+                    disputed: '#E05C5C', released: '#A09882'
+                };
                 listHtml = `<div style="display:flex;flex-direction:column;gap:12px">
-                    ${bonds.map(b => `
-                        <div onclick="document.getElementById('settings-close').click(); window.navigate?.('bond-detail',{bondId:'${b.id}'})"
-                            style="background:#1A1A1A;border:1px solid #2A2A2A;border-radius:12px;padding:16px;cursor:pointer">
-                            <div style="display:flex;justify-content:space-between;margin-bottom:8px">
-                                <span style="font:600 14px Inter;color:#F5F0E8">₹${(b.depositAmount||0).toLocaleString('en-IN')}</span>
-                                <span style="font:500 11px Inter;color:${b.status==='active'?'#4CAF82':'#FFA000'};background:rgba(255,255,255,0.05);padding:2px 6px;border-radius:4px;text-transform:uppercase">${b.status}</span>
+                    ${bonds.map(b => {
+                        const isSeller = b.sellerUid === currentUid;
+                        const role = isSeller ? 'SELLER' : 'BUYER';
+                        const roleColor = isSeller ? '#9B59B6' : '#4B9FD4';
+                        const statusColor = STATUS_COLOR[b.status] || '#A09882';
+                        const date = b.createdAt?.toDate
+                            ? b.createdAt.toDate().toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })
+                            : '';
+                        const chatVisible = b.status !== 'released';
+                        return `
+                        <div style="background:#1A1A1A;border:1px solid #2A2A2A;border-radius:12px;padding:16px;cursor:pointer"
+                          onclick="document.getElementById('settings-close').click(); window.navigate?.('bond-detail',{bondId:'${b.id}'})">
+                          <!-- Top row -->
+                          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+                            <div style="display:flex;align-items:center;gap:8px">
+                              <span style="font:600 10px/1 Inter;color:${roleColor};background:rgba(75,159,212,0.1);padding:3px 7px;border-radius:4px;letter-spacing:0.06em">${role}</span>
+                              <span style="font:500 11px Inter;color:${statusColor};background:rgba(255,255,255,0.04);padding:2px 6px;border-radius:4px;text-transform:uppercase">${b.status}</span>
                             </div>
-                            <div style="font:400 12px Inter;color:#A09882;font-family:monospace">ID: ${b.id.substring(0,8).toUpperCase()}</div>
-                        </div>
-                    `).join('')}
+                            <span style="font:400 11px Inter;color:#5C5647">${date}</span>
+                          </div>
+                          <!-- Title + amount -->
+                          <div style="font:600 14px/1.3 Inter;color:#F5F0E8;margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
+                            ${b.listingTitle || 'Spolia Bond'}
+                          </div>
+                          <div style="display:flex;align-items:center;justify-content:space-between;margin-top:10px">
+                            <span style="font:700 16px Inter;color:#FFD700">₹${(b.depositAmount||0).toLocaleString('en-IN')} <span style="font:400 11px Inter;color:#5C5647">deposit</span></span>
+                            ${chatVisible ? `
+                              <button onclick="event.stopPropagation(); document.getElementById('settings-close').click(); window.navigate?.('chat',{bondId:'${b.id}',bondData:${JSON.stringify({sellerUid:b.sellerUid,buyerUid:b.buyerUid,sellerName:b.sellerName,buyerName:b.buyerName}).replace(/"/g,'&quot;')}})"
+                                style="display:flex;align-items:center;gap:4px;height:28px;padding:0 10px;border-radius:6px;
+                                  background:#1E1E1E;border:1px solid #2A2A2A;color:#A09882;font:600 11px Inter;cursor:pointer">
+                                💬 Chat
+                              </button>` : ''}
+                          </div>
+                        </div>`; }).join('')}
                 </div>`;
             }
             renderSheet();
@@ -745,6 +905,7 @@ export class ProfileScreen {
             renderSheet();
         }
     }
+
 
     _openSettings() {
         const u = this.profile || {};
@@ -968,7 +1129,6 @@ export class ProfileScreen {
         const authUser = this.user;
 
         // STEP 2: Render IMMEDIATELY from whatever we have right now (no await).
-        // Firebase Auth user is available synchronously — no need to wait for Firestore.
         if (authUser && !this.profile) {
             const cached = window.App?.currentUserProfile;
             this.profile = (cached?.uid) ? cached : {
@@ -984,6 +1144,18 @@ export class ProfileScreen {
                 impact:  { co2Saved: 0, transactions: 0, weightRescued: 0 }
             };
         }
+
+        // ── DEMO MODE: pre-fill listings from MOCK data, skip Firestore ─────────
+        const isDemo = (() => { try { return sessionStorage.getItem('spolia_demo') === '1'; } catch { return false; } })();
+        if (isDemo) {
+            const demoListingIds = (this.profile?.listings || []).map(l => l.id || l);
+            this.listings = demoListingIds.length
+                ? MOCK_LISTINGS.filter(l => demoListingIds.includes(l.id))
+                : MOCK_LISTINGS.slice(0, 4);
+            this.render(this.profile);
+            return;
+        }
+
         this.render(this.profile);   // instant, sync — no skeleton if we have auth
 
         if (!authUser?.uid) return;  // not signed in, nothing more to do

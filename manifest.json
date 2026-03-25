@@ -1,9 +1,12 @@
 {
+  "id": "/",
   "name": "Spolia",
   "short_name": "Spolia",
   "description": "The exclusive exchange for reclaimed construction materials.",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
   "background_color": "#0D0D0D",
   "theme_color": "#0D0D0D",
   "orientation": "portrait",
@@ -58,6 +61,13 @@
       "type": "image/png",
       "form_factor": "wide",
       "label": "Radar Discovery Feed"
+    },
+    {
+      "src": "assets/screenshots/radar-mobile.png",
+      "sizes": "640x640",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Radar — Mobile View"
     }
   ],
   "categories": ["business", "shopping"]
