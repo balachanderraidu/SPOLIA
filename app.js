@@ -6,7 +6,7 @@
 function isDemoMode() {
     try {
         const params = new URLSearchParams(window.location.search);
-        if (params.has('demo')) {
+        if (params.has('demo') || params.has('spolia_demo')) {
             sessionStorage.setItem('spolia_demo', '1');
             const clean = window.location.pathname;
             history.replaceState(null, '', clean);
