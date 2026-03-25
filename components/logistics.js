@@ -151,13 +151,7 @@ export class LogisticsScreen {
     _bindEvents() {
         // Back button — go to bond-detail if we have a bondId, else material-detail or radar
         this.el.querySelector('#back-btn')?.addEventListener('click', () => {
-            if (this.bondId) {
-                window.navigate?.('bond-detail', { bondId: this.bondId });
-            } else if (this.listingId) {
-                window.navigate?.('material-detail', { listingId: this.listingId });
-            } else {
-                window.navigate?.('radar');
-            }
+            window.goBack?.('material-detail', { listingId: this.params?.listingId });
         });
 
         // Partner selection

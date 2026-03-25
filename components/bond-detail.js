@@ -24,7 +24,7 @@ export class BondDetailScreen {
     const header = document.querySelector('.app-header');
     if (header) {
       header.innerHTML = `
-        <button class="icon-btn" onclick="window.navigate?.('profile')" aria-label="Back">
+        <button class="icon-btn" onclick="window.goBack?.('profile')" aria-label="Back">
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></svg>
         </button>
         <span class="app-header__title">Spolia Bond</span>

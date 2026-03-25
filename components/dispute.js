@@ -123,13 +123,7 @@ export class DisputeScreen {
     _bindEvents() {
         // Back button — return to bond-detail if we have a bond, else listing, else radar
         this.el.querySelector('#back-btn')?.addEventListener('click', () => {
-            if (this.bondId) {
-                window.navigate?.('bond-detail', { bondId: this.bondId });
-            } else if (this.listingId) {
-                window.navigate?.('material-detail', { listingId: this.listingId });
-            } else {
-                window.navigate?.('radar');
-            }
+            window.goBack?.('radar');
         });
 
         // Character count

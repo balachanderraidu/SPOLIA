@@ -201,7 +201,7 @@ export class ListingCreateScreen {
 
     _bindEvents() {
         // Back
-        this.el.querySelector('#back-btn')?.addEventListener('click', () => window.navigate?.('scanner'));
+        this.el.querySelector('#back-btn')?.addEventListener('click', () => window.goBack?.('scanner'));
 
         // Photo upload
         const photoInput = this.el.querySelector('#photo-input');

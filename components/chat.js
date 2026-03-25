@@ -171,7 +171,7 @@ export class ChatScreen {
 
             // Wire back button here so we have bondId
             this.el.querySelector('#chat-back')?.addEventListener('click', () => {
-                window.navigate?.('bond-detail', { bondId: this.bondId });
+                window.goBack?.('bond-detail', { bondId: this.bondId });
             });
         } catch (err) {
             console.error('[Chat] onActivate error:', err);

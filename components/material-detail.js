@@ -250,8 +250,7 @@ export class MaterialDetailScreen {
 
     _bindActions() {
         this.el.querySelector('#back-btn')?.addEventListener('click', () => {
-            const prev = window.App?.previousRoute;
-            window.navigate?.(prev && prev !== 'material-detail' ? prev : 'radar');
+            window.goBack?.('radar');
         });
 
         this.el.querySelector('#share-btn')?.addEventListener('click', () => {

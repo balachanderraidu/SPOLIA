@@ -69,7 +69,7 @@ const App = {
 
 
 // ── Router ─────────────────────────────────────────────────────────
-export function navigate(routeName, params = {}) {
+export function navigate(routeName, params = {}, isPop = false) {
     const route = App.routes[routeName];
     if (!route) {
         console.warn('[Router] Unknown route:', routeName);
@@ -78,19 +78,47 @@ export function navigate(routeName, params = {}) {
 
     // Auth guard — redirect to login if not authenticated and route is not public
     if (!route.public && !App.isAuthenticated) {
-        // Don't call navigate('login') recursively here — use direct DOM ops
         _activateScreen('login', {});
         return;
     }
 
     if (routeName === App.currentRoute) {
-        // Same route — just re-fire onActivate (acts as a refresh), no animation
+        // Same route — just re-fire onActivate (acts as a refresh)
         const instance = App.screenInstances[routeName];
         if (instance?.onActivate) instance.onActivate({});
         return;
     }
+
+    // Push to browser history if this wasn't triggered by a pop/back button
+    if (!isPop && routeName !== 'login' && routeName !== 'onboarding') {
+        let url = `/${routeName}`;
+        if (params.listingId) url += `?listing=${params.listingId}`;
+        else if (params.bondId) url += `?bond=${params.bondId}`;
+        history.pushState({ route: routeName, params }, '', url);
+    }
+
     _activateScreen(routeName, params);
 }
+
+// ── Back Navigation ────────────────────────────────────────────────
+export function goBack(fallbackRoute = 'radar', params = {}) {
+    if (history.state && history.state.route) {
+        history.back();
+    } else {
+        navigate(fallbackRoute, params);
+    }
+}
+window.goBack = goBack;
+
+// Global hook for system back button (PWA swipe back)
+window.addEventListener('popstate', (e) => {
+
+    if (e.state && e.state.route) {
+        navigate(e.state.route, e.state.params || {}, true);
+    } else {
+        if (App.isAuthenticated) navigate('radar', {}, true);
+    }
+});
 
 function _activateScreen(routeName, params = {}) {
     const route = App.routes[routeName];
