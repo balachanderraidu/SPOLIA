@@ -112,15 +112,15 @@ export function estimateCO2Savings(category, quantity, unit) {
 
 // Mock scan result for development
 const MOCK_SCAN_RESULT = {
-    materialType: "Red Clay Brick (Handmade)",
-    category: "brick",
-    condition: "Good",
-    estimatedQuantity: { value: 2400, unit: "pieces" },
-    estimatedPricePerUnit: 14,
+    materialType: "Surplus Birla A1 PPC Cement",
+    category: "cement",
+    condition: "New, but near shelf-life end",
+    estimatedQuantity: { value: 50, unit: "bags" },
+    estimatedPricePerUnit: 240,
     currency: "INR",
-    co2SavedKg: 840,
-    confidence: 0.91,
-    description: "Handmade red clay bricks with characteristic irregular texture and warm terracotta tones, sourced from a period residential building. Ideal for feature walls, landscaping, and contemporary-heritage mixed-use projects.",
-    tags: ["reclaimed", "handmade", "terracotta", "period", "character"],
-    warnings: []
+    co2SavedKg: 1250,
+    confidence: 0.96,
+    description: "AI identified 50 bags of PPC cement. Manufacture date indicates 14 days left until expiry. Recommended action: Apply a 40% discount for an URGENT RESCUE to prevent material loss.",
+    tags: ["surplus", "urgent rescue", "cement"],
+    warnings: ["Expiring in 14 days - rapid pickup required"]
 };
