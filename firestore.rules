@@ -5,7 +5,12 @@ service cloud.firestore {
     // ── Users ──────────────────────────────────────────────────────
     match /users/{uid} {
       allow read: if request.auth != null;
-      allow write: if request.auth != null && request.auth.uid == uid;
+      allow create: if request.auth != null && request.auth.uid == uid
+        && (request.resource.data.wallet.balance == 0 || !("wallet" in request.resource.data))
+        && (request.resource.data.role == null || !("role" in request.resource.data))
+        && (request.resource.data.verified == false || !("verified" in request.resource.data));
+      allow update: if request.auth != null && request.auth.uid == uid
+        && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['wallet', 'role', 'verified']));
     }
 
     // ── Listings ───────────────────────────────────────────────────

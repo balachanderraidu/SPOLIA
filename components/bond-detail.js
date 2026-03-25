@@ -230,16 +230,11 @@ export class BondDetailScreen {
       try {
         await FirebaseDB.updateBondStatus(b.id, 'released');
 
-        // Update seller wallet + impact stats
-        const uid = window.App?.currentUser?.uid;
-        if (uid) {
-          FirebaseDB.updateUserStats(uid, {
-            walletDelta:       b.depositAmount || 0,
-            pendingBondsDelta: -1,
-            txDelta:           1,
-            co2Delta:          b.co2Saved     || 0
-          }).catch(() => {});
-        }
+        // TODO [SECURITY]: Client-side financial updates are insecure.
+        // We've locked down firestore.rules for the wallet field.
+        // A backend Cloud Function should listen for bond status == 'released'
+        // and securely increment the seller's wallet balance.
+        // FirebaseDB.updateUserStats(uid, { walletDelta: ... }) removed.
 
         window.showToast?.('Pickup confirmed! Funds released to seller. 🎉', 'success', 5000);
 

@@ -300,9 +300,12 @@ export class ProfileScreen {
 
         // #bonds-btn — demo aware
         this.el.querySelector('#bonds-btn')?.addEventListener('click', () => {
-            const isDemo = (() => { try { return sessionStorage.getItem('spolia_demo') === '1'; } catch { return false; } })();
-            if (isDemo) { this._openDemoBondsSheet(); return; }
-            window.navigate?.('bond-detail', { bondId: window.App?.currentUser?.uid });
+            if (window.isDemoMode?.()) { this._openDemoBondsSheet(); return; }
+            if (this._openBondsSheet) {
+                this._openBondsSheet();
+            } else {
+                window.navigate?.('bond-detail', { bondId: window.App?.currentUser?.uid });
+            }
         });
 
         this.el.querySelector('#view-all-btn')?.addEventListener('click', () =>
@@ -343,8 +346,7 @@ export class ProfileScreen {
         this.el.querySelector('#settings-btn')?.addEventListener('click', () =>
             this._openSettings());
 
-        this.el.querySelector('#bonds-btn')?.addEventListener('click', () =>
-            this._openBondsSheet());
+        // Removed broken duplicate #bonds-btn listener
 
         this.el.querySelector('#signout-btn')?.addEventListener('click', async () => {
             if (confirm('Sign out of Spolia?')) {

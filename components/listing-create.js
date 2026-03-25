@@ -50,7 +50,7 @@ export class ListingCreateScreen {
         <div class="form-field">
           <label class="form-label" for="listing-title">Material Title</label>
           <input class="form-input" id="listing-title" type="text"
-            placeholder="e.g. Reclaimed Italian Travertine"
+            placeholder="e.g. Surplus Birla A1 PPC Cement"
             value="${d.materialType || ''}">
         </div>
 
@@ -90,7 +90,7 @@ export class ListingCreateScreen {
         <div class="form-field">
           <label class="form-label" for="listing-desc">Description</label>
           <textarea class="form-textarea" id="listing-desc" rows="3"
-            placeholder="Describe the material, condition, provenance..."
+            placeholder="Describe the material, condition, shelf-life, and reason for surplus..."
             maxlength="500">${d.description || ''}</textarea>
         </div>
 
@@ -395,14 +395,14 @@ export class ListingCreateScreen {
         } else if (isDemo && !this.scanData) {
             // Pre-fill with the same demo scan result the scanner shows
             const demoScan = {
-                materialType: 'Reclaimed Structural Steel (ISMB 250)',
-                condition: 'Good — surface rust only, structurally sound',
-                confidence: 0.94,
-                estimatedQuantity: { value: 6, unit: 'pieces' },
-                estimatedPricePerUnit: 11500,
-                co2SavedKg: 1800,
-                category: 'steel',
-                description: 'AI identified this as ISMB 250-grade structural I-beams from demolition projects. Surface oxidation visible but cross-section integrity intact. Suitable for mezzanine frames, scaffolding, or heavy furniture fabrication.'
+                materialType: 'Surplus Birla A1 PPC Cement',
+                condition: 'New, but near shelf-life end',
+                confidence: 0.96,
+                estimatedQuantity: { value: 50, unit: 'bags' },
+                estimatedPricePerUnit: 240,
+                co2SavedKg: 1250,
+                category: 'cement',
+                description: 'AI identified 50 bags of PPC cement. Manufacture date indicates 14 days left until expiry. Recommended action: Apply a 40% discount for an URGENT RESCUE to prevent material loss.'
             };
             this.scanData = demoScan;
             this.render(demoScan);

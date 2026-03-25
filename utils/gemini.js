@@ -3,8 +3,10 @@
 // Used for: AI Scanner material identification + description generation
 // ──────────────────────────────────────────────────────────────────
 
-// TODO: Replace with your Google Gemini API key
-const GEMINI_API_KEY = "AIzaSyBODmTARJkg" + "M_i8-QYCm-A-qJPYgJVYNOU";
+// TODO: Server-side API Key required.
+// Do not expose production keys in the client bundle.
+// Migrate to Cloud Functions or backend service before launch.
+const GEMINI_API_KEY = "MOCK_KEY_FOR_DEMO";
 const GEMINI_MODEL = "gemini-2.0-flash";
 const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
 

@@ -18,6 +18,7 @@ export class AdminScreen {
     async onActivate() {
         if (!window.App?.currentUserProfile || window.App.currentUserProfile.role !== 'admin') {
             window.showToast?.('Unauthorized access', 'error');
+            this.el.innerHTML = '';
             window.navigate?.('radar');
             return;
         }

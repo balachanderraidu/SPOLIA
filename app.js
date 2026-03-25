@@ -8,15 +8,17 @@ function isDemoMode() {
         const params = new URLSearchParams(window.location.search);
         if (params.has('demo') || params.has('spolia_demo')) {
             sessionStorage.setItem('spolia_demo', '1');
+            localStorage.setItem('spolia_demo', '1');
             const clean = window.location.pathname;
             history.replaceState(null, '', clean);
             return true;
         }
-        return sessionStorage.getItem('spolia_demo') === '1';
+        return sessionStorage.getItem('spolia_demo') === '1' || localStorage.getItem('spolia_demo') === '1';
     } catch {
         return false;
     }
 }
+window.isDemoMode = isDemoMode;
 const DEMO_MODE = isDemoMode();
 
 import { FirebaseAuth, FirebaseDB, MOCK_USER_PROFILE, MOCK_NOTIFICATIONS, MOCK_BONDS } from './firebase-config.js';

@@ -159,6 +159,19 @@ export class ChatScreen {
             return;
         }
 
+        if (window.isDemoMode?.()) {
+            this.chatRoomId = 'demo-chat-123';
+            this._messages = [
+                { type: 'system', text: '🔒 Walled chat started for this Spolia Bond. Sharing contact info is not permitted.' },
+                { senderName: this.otherParty.name, senderUid: this._otherPartyUid, text: 'Hi! Let me know when you can pick this up.', createdAt: { toDate: () => new Date() } }
+            ];
+            this._renderMessages();
+            this.el.querySelector('#chat-back')?.addEventListener('click', () => {
+                window.goBack?.('bond-detail', { bondId: this.bondId });
+            });
+            return;
+        }
+
         try {
             const bondData = params.bondData || null;
             this.chatRoomId = await FirebaseDB.getOrCreateChatRoom(
@@ -300,6 +313,24 @@ export class ChatScreen {
         this._sending = true;
         const sendBtn = this.el.querySelector('#chat-send');
         if (sendBtn) sendBtn.style.opacity = '0.5';
+
+        if (window.isDemoMode?.()) {
+            this._messages.push({
+                senderUid: this.currentUser.uid,
+                senderName: this.currentUser.displayName || 'User',
+                text,
+                type: 'user',
+                createdAt: { toDate: () => new Date() }
+            });
+            this._renderMessages();
+            if (input) {
+                input.value = '';
+                input.style.height = 'auto';
+            }
+            this._sending = false;
+            if (sendBtn) sendBtn.style.opacity = '1';
+            return;
+        }
 
         try {
             await FirebaseDB.sendMessage(this.chatRoomId, {

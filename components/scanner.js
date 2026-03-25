@@ -141,13 +141,13 @@ export class ScannerScreen {
             this.scanning = false;
             if (captureBtn) captureBtn.style.transform = 'translateX(-50%) scale(1)';
             const demoResult = {
-                materialType: 'Reclaimed Structural Steel (ISMB 250)',
-                condition: 'Good — surface rust only, structurally sound',
-                confidence: 0.94,
-                estimatedQuantity: { value: 6, unit: 'pieces' },
-                estimatedPricePerUnit: 11500,
-                co2SavedKg: 1800,
-                description: 'AI identified this as ISMB 250-grade structural I-beams commonly found in demolition projects. Surface oxidation visible but cross-section integrity appears intact. Recommend third-party load test before structural reuse. Suitable for mezzanine frames, scaffolding, or heavy furniture fabrication.'
+                materialType: 'Surplus Birla A1 PPC Cement',
+                condition: 'New, but near shelf-life end',
+                confidence: 0.96,
+                estimatedQuantity: { value: 50, unit: 'bags' },
+                estimatedPricePerUnit: 240,
+                co2SavedKg: 1250,
+                description: 'AI identified 50 bags of PPC cement. Manufacture date indicates 14 days left until expiry. Recommended action: Apply a 40% discount for an URGENT RESCUE to prevent material loss.'
             };
             window._lastScanResult = demoResult;
             this._showResult(demoResult);

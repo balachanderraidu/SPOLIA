@@ -456,6 +456,21 @@ export class MaterialDetailScreen {
         const btn = this.el.querySelector('#bond-btn');
         if (btn) { btn.textContent = 'Processing...'; btn.disabled = true; }
 
+        if (window.isDemoMode?.()) {
+            window.showToast?.('Bond secured! 🔒 Your deposit is in escrow. (Demo Mode)', 'success');
+            setTimeout(() => {
+                window.navigate?.('logistics', {
+                    listingId: l.id,
+                    listingTitle: l.title,
+                    bondId: 'demo-bond-123',
+                    pickupLocation: l.location,
+                    materialType: l.type,
+                    depositAmount: this._depositAmountRaw(l)
+                });
+            }, 1200);
+            return;
+        }
+
         try {
             const depositAmount = this._depositAmountRaw(l);
             const currentUser = window.App?.currentUser;

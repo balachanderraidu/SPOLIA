@@ -32,7 +32,12 @@ export class RadarScreen {
 
     // Demo mode: skip Firestore, use pre-seeded MOCK_NOTIFICATIONS
     const isDemo = (() => { try { return sessionStorage.getItem('spolia_demo') === '1'; } catch { return false; } })();
-    if (isDemo) {
+    if (isDemo || window.isDemoMode?.()) {
+      if (!sessionStorage.getItem('spolia_demo_welcome_shown')) {
+          sessionStorage.setItem('spolia_demo_welcome_shown', '1');
+          this._showWelcomeOverlay();
+      }
+
       if (!this._notifications.length) {
         this._notifications = MOCK_NOTIFICATIONS;
         this._unreadCount = MOCK_NOTIFICATIONS.filter(n => !n.read).length;
@@ -55,6 +60,42 @@ export class RadarScreen {
 
   onDeactivate() {
     if (this.unsubNotif) { this.unsubNotif(); this.unsubNotif = null; }
+  }
+
+  _showWelcomeOverlay() {
+    const overlay = document.createElement('div');
+    overlay.style.cssText = `
+      position:fixed;inset:0;z-index:9000;background:rgba(0,0,0,0.8);backdrop-filter:blur(8px);
+      display:flex;align-items:flex-end;justify-content:center;animation:fadeIn 300ms ease;
+    `;
+    overlay.innerHTML = `
+      <div style="background:var(--color-bg-surface);width:100%;max-width:480px;border-top-left-radius:24px;border-top-right-radius:24px;padding:32px 24px;transform:translateY(100%);animation:slideUp 400ms cubic-bezier(0.16, 1, 0.3, 1) forwards;">
+        <h2 style="font:var(--text-h1);color:var(--color-gold);margin-bottom:16px;">Welcome to Spolia (Demo)</h2>
+        <p style="font:var(--text-body);color:var(--color-text-secondary);margin-bottom:24px;line-height:1.6;">
+          You are exploring a live simulation of India's first exclusive exchange for reclaimed materials.
+        </p>
+        <ul style="list-style:none;padding:0;margin:0 0 32px 0;display:flex;flex-direction:column;gap:16px;">
+          <li style="display:flex;align-items:flex-start;gap:12px;">
+            <span style="font-size:20px;line-height:1.2;">🔴</span>
+            <div><strong style="color:var(--color-text-primary);display:block;margin-bottom:4px;">Rescue Expiries:</strong><span style="color:var(--color-text-secondary);font-size:14px;line-height:1.5;">Find materials like cement and paint before they go to landfill.</span></div>
+          </li>
+          <li style="display:flex;align-items:flex-start;gap:12px;">
+            <span style="font-size:20px;line-height:1.2;">📦</span>
+            <div><strong style="color:var(--color-text-primary);display:block;margin-bottom:4px;">Clear Surplus:</strong><span style="color:var(--color-text-secondary);font-size:14px;line-height:1.5;">Buy pristine leftover tiles and marble from completed luxury projects.</span></div>
+          </li>
+          <li style="display:flex;align-items:flex-start;gap:12px;">
+            <span style="font-size:20px;line-height:1.2;">🔒</span>
+            <div><strong style="color:var(--color-text-primary);display:block;margin-bottom:4px;">Trade Safely:</strong><span style="color:var(--color-text-secondary);font-size:14px;line-height:1.5;">Every transaction is backed by the Spolia Bond escrow mechanics.</span></div>
+          </li>
+        </ul>
+        <button id="close-welcome-btn" class="btn btn--gold" style="width:100%;">Start Exploring</button>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+    overlay.querySelector('#close-welcome-btn').addEventListener('click', () => {
+      overlay.querySelector('div').style.animation = 'slideDown 300ms cubic-bezier(0.32, 0.72, 0, 1) forwards';
+      setTimeout(() => overlay.remove(), 280);
+    });
   }
 
   _getUserLocation() {
@@ -410,10 +451,13 @@ export class RadarScreen {
             ${neighborBadge}${archBadge}
           </div>
           ${contentsHtml}
-          <div class="material-card__footer">
-            <div>
-              <span class="material-card__price">${listing.currency}${listing.price.toLocaleString('en-IN')}</span>
-              <span class="material-card__price-unit">/${listing.unit}</span>
+          <div class="material-card__footer" style="display:flex;align-items:center;justify-content:space-between;width:100%;">
+            <div style="display:flex;flex-direction:column;align-items:flex-start;">
+              ${listing.retailPrice ? `<span style="font:400 11px/1 Inter,sans-serif;color:var(--color-text-muted);text-decoration:line-through;margin-bottom:2px">MRP ${listing.currency}${listing.retailPrice.toLocaleString('en-IN')}</span>` : ''}
+              <div>
+                <span class="material-card__price" style="${listing.retailPrice ? 'color:var(--color-green);' : ''}">${listing.currency}${listing.price.toLocaleString('en-IN')}</span>
+                <span class="material-card__price-unit">/${listing.unit}</span>
+              </div>
             </div>
             ${listing.bondProtected ? `
               <span class="badge badge--bond" aria-label="Bond Protected">

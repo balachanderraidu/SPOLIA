@@ -215,6 +215,15 @@ export class DisputeScreen {
             return;
         }
 
+        if (window.isDemoMode?.()) {
+            window.showToast?.('Dispute submitted. A mediator will review within 48 hours. (Demo)', 'success');
+            setTimeout(() => {
+                if (this.listingId) { window.navigate?.('material-detail', { listingId: this.listingId }); }
+                else { window.navigate?.('radar'); }
+            }, 2000);
+            return;
+        }
+
         const submitBtn = this.el.querySelector('#submit-dispute');
         if (submitBtn) {
             submitBtn.textContent = 'Submitting...';

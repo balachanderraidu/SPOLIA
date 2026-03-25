@@ -1,0 +1,24 @@
+[debug] [2026-03-25T17:03:50.483Z] ----------------------------------------------------------------------
+[debug] [2026-03-25T17:03:50.490Z] Command:       C:\nvm4w\nodejs\node.exe C:\Users\balac\AppData\Roaming\npm\node_modules\firebase-tools\lib\bin\firebase.js deploy
+[debug] [2026-03-25T17:03:50.490Z] CLI Version:   15.9.0
+[debug] [2026-03-25T17:03:50.490Z] Platform:      win32
+[debug] [2026-03-25T17:03:50.490Z] Node Version:  v24.13.0
+[debug] [2026-03-25T17:03:50.490Z] Time:          Wed Mar 25 2026 22:33:50 GMT+0530 (India Standard Time)
+[debug] [2026-03-25T17:03:50.490Z] ----------------------------------------------------------------------
+[debug] 
+[debug] [2026-03-25T17:03:52.069Z] Object "/storage" in "firebase.json" has unknown property: {"additionalProperty":"bucket"}
+[debug] [2026-03-25T17:03:52.070Z] Field "/storage" in "firebase.json" is possibly invalid: must be array
+[debug] [2026-03-25T17:03:52.070Z] Field "/storage" in "firebase.json" is possibly invalid: must match a schema in anyOf
+[debug] [2026-03-25T17:03:52.071Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2026-03-25T17:03:52.072Z] > authorizing via signed-in user (balachanderraidu@gmail.com)
+[debug] [2026-03-25T17:03:52.072Z] [iam] checking project spolia-c42ab for permissions ["datastore.indexes.create","datastore.indexes.delete","datastore.indexes.list","datastore.indexes.update","firebase.projects.get","firebasehosting.sites.update","firebaserules.releases.create","firebaserules.releases.update","firebaserules.rulesets.create"]
+[debug] [2026-03-25T17:03:52.072Z] Checked if tokens are valid: false, expires at: 1774459010001
+[debug] [2026-03-25T17:03:52.072Z] Checked if tokens are valid: false, expires at: 1774459010001
+[debug] [2026-03-25T17:03:52.072Z] > refreshing access token with scopes: []
+[debug] [2026-03-25T17:03:52.073Z] >>> [apiv2][query] POST https://www.googleapis.com/oauth2/v3/token [none]
+[debug] [2026-03-25T17:03:52.073Z] >>> [apiv2][body] POST https://www.googleapis.com/oauth2/v3/token [omitted]
+[debug] [2026-03-25T17:03:52.352Z] <<< [apiv2][status] POST https://www.googleapis.com/oauth2/v3/token 200
+[debug] [2026-03-25T17:03:52.352Z] <<< [apiv2][body] POST https://www.googleapis.com/oauth2/v3/token [omitted]
+[debug] [2026-03-25T17:03:52.369Z] >>> [apiv2][query] POST https://cloudresourcemanager.googleapis.com/v1/projects/spolia-c42ab:testIamPermissions [none]
+[debug] [2026-03-25T17:03:52.369Z] >>> [apiv2][(partial)header] POST https://cloudresourcemanager.googleapis.com/v1/projects/spolia-c42ab:testIamPermissions  x-goog-user-project=spolia-c42ab
+[debug] [2026-03-25T17:03:52.369Z] >>> [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/spolia-c42ab:testIamPermissions {"permissions":["datastore.indexes.create","datastore.indexes.delete","datastore.indexes.list","datastore.indexes.update","firebase.projects.get","firebasehosting.sites.update","firebaserules.releases.create","firebaserules.releases.update","firebaserules.rulesets.create"]}

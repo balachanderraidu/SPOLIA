@@ -979,19 +979,19 @@ const FirebaseStorage = {
 // ──────────────────────────────────────────────────────────────────
 const MOCK_LISTINGS = [
     {
-        id: "listing-001", title: "Reclaimed Italian Travertine",
-        type: "stone", quantity: 240, unit: "sqft", price: 180, currency: "₹",
+        id: "listing-001", title: "Surplus Italian Travertine (Villa Rescue)",
+        type: "stone", quantity: 240, unit: "sqft", price: 180, retailPrice: 280, currency: "₹",
         distance: 1.2, co2Saved: 480, bondProtected: true, verified: true,
         imageUrls: ["https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=600&q=80"],
         seller: { uid: "uid-002", name: "Studio Mehta", badge: "architect", avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&q=80" },
         location: { lat: 19.076, lng: 72.877, label: "Bandra West, Mumbai" },
-        description: "Premium book-matched travertine slabs from a completed villa project in Bandra. 240 sqft available, minimal wear, full original 20mm thickness. Certificate of origin from the original importer available.",
+        description: "Premium book-matched travertine slabs, surplus from a completed villa project. 240 sqft available. Don't let pristine materials go to waste. Retail ₹280/sqft, rescuing at ₹180.",
         specs: { thickness: "20mm", finish: "Honed", color: "Warm Beige", grade: "Premium", origin: "Tivoli, Lazio, Italy" },
         stats: { ratingCount: 14, ratingSum: 67 }
     },
     {
-        id: "listing-002", title: "Structural Steel I-Beams (ISMB 250)",
-        type: "steel", quantity: 8, unit: "pieces", price: 12500, currency: "₹",
+        id: "listing-002", title: "Rescued Structural Steel I-Beams (ISMB 250)",
+        type: "steel", quantity: 8, unit: "pieces", price: 12500, retailPrice: 18500, currency: "₹",
         distance: 3.4, co2Saved: 2100, bondProtected: true, verified: true,
         imageUrls: ["https://images.unsplash.com/photo-1504917595217-d4dc5ebe6122?w=600&q=80"],
         seller: { uid: "uid-003", name: "Apex Constructions", badge: "contractor", avatar: "https://images.unsplash.com/photo-1560250097-0b93528c311a?w=100&q=80" },
@@ -1031,8 +1031,8 @@ const MOCK_LISTINGS = [
         isUrgentRescue: true
     },
     {
-        id: "listing-005", title: "Italian Carrara Marble Slabs",
-        type: "marble", quantity: 120, unit: "sqft", price: 420, currency: "₹",
+        id: "listing-005", title: "Leftover Italian Carrara Marble Slabs",
+        type: "marble", quantity: 120, unit: "sqft", price: 420, retailPrice: 750, currency: "₹",
         distance: 2.3, co2Saved: 960, bondProtected: true, verified: true, archApproved: true,
         imageUrls: ["https://images.unsplash.com/photo-1618221381711-42ca8ab6e908?w=600&q=80"],
         seller: { uid: "uid-006", name: "Marble World India", badge: "vendor", avatar: "https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=100&q=80" },
@@ -1076,8 +1076,8 @@ const MOCK_LISTINGS = [
         isUrgentRescue: true
     },
     {
-        id: "listing-009", title: "Birla A1 PPC Cement (Near Expiry)",
-        type: "cement", quantity: 25, unit: "bags", price: 280, currency: "₹",
+        id: "listing-009", title: "Birla A1 PPC Cement (Near Expiry Rescue)",
+        type: "cement", quantity: 25, unit: "bags", price: 280, retailPrice: 400, currency: "₹",
         distance: 1.5, co2Saved: 62, bondProtected: false, verified: true,
         imageUrls: ["https://images.unsplash.com/photo-1590496793929-36417d3117de?w=600&q=80"],
         seller: { uid: "uid-010", name: "Balaji Hardware Stores", badge: "vendor", avatar: "https://images.unsplash.com/photo-1566492031773-4f4e44671857?w=100&q=80" },
@@ -1130,8 +1130,8 @@ const MOCK_LISTINGS = [
         specs: { brand: "Finolex", size: "4 sq mm", type: "3-core PVC insulated", length: "50m rolls", isRMSApproved: true }
     },
     {
-        id: "listing-014", title: "Porcelain Large Format Tiles (80×160cm)",
-        type: "marble", quantity: 60, unit: "sqft", price: 280, currency: "₹",
+        id: "listing-014", title: "Surplus Porcelain Large Format Tiles (80×160cm)",
+        type: "marble", quantity: 60, unit: "sqft", price: 280, retailPrice: 650, currency: "₹",
         distance: 3.1, co2Saved: 145, bondProtected: false, verified: true, archApproved: true,
         imageUrls: ["https://images.unsplash.com/photo-1615529182904-14819c35db37?w=600&q=80"],
         seller: { uid: "uid-006", name: "Marble World India", badge: "vendor", avatar: "https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=100&q=80" },
@@ -1475,6 +1475,11 @@ const MOCK_NOTIFICATIONS = [
         createdAt: { toDate: () => new Date(Date.now() - 6 * 24 * 3600 * 1000) }
     }
 ];
+
+// Prevent sorting collisions in radar feed by giving each mock listing a unique timestamp
+MOCK_LISTINGS.forEach((listing, idx) => {
+    listing.createdAt = { toDate: () => new Date(Date.now() - idx * 3600 * 1000) };
+});
 
 export {
     firebaseConfig, firebaseApp, auth, db, storage,
