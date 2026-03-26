@@ -124,13 +124,34 @@
   <!-- Main Application -->
   <script type="module">
     // Import and initialize the app
-    import('./app.js').then(() => {
+    import('./app.js?v=2').then(() => {
       // Hide splash after screens render
       const splash = document.getElementById('splash-screen');
       if (splash) {
         setTimeout(() => {
           splash.style.opacity = '0';
-          setTimeout(() => splash.remove(), 500);
+          setTimeout(() => {
+            splash.remove();
+            // After splash is gone, show demo welcome if needed
+            const isDemo = (()=>{ try { return localStorage.getItem('spolia_demo')==='1' || sessionStorage.getItem('spolia_demo')==='1'; } catch(e){ return false; }})();
+            if (isDemo && !document.getElementById('spolia-welcome-overlay')) {
+              const ov = document.createElement('div');
+              ov.id = 'spolia-welcome-overlay';
+              ov.style.cssText = 'position:fixed;inset:0;z-index:9000;background:rgba(0,0,0,0.85);backdrop-filter:blur(8px);display:flex;align-items:flex-end;justify-content:center;';
+              ov.innerHTML = `<div style="background:#161616;width:100%;max-width:480px;border-radius:24px 24px 0 0;padding:32px 24px;">
+                <h2 style="font:700 24px/1.2 Inter,sans-serif;color:#FFD700;margin-bottom:16px;">Welcome to Spolia</h2>
+                <p style="font:400 14px/1.6 Inter,sans-serif;color:#A09882;margin-bottom:24px;">You're exploring a live simulation of India's first exclusive exchange for reclaimed construction materials.</p>
+                <ul style="list-style:none;padding:0;margin:0 0 32px;display:flex;flex-direction:column;gap:16px;">
+                  <li style="display:flex;align-items:flex-start;gap:12px;"><span style="font-size:20px">🔴</span><div><strong style="color:#F5F0E8;display:block;margin-bottom:4px;">Rescue Expiries</strong><span style="color:#A09882;font-size:14px;">Find cement, paint and tiles before they go to landfill.</span></div></li>
+                  <li style="display:flex;align-items:flex-start;gap:12px;"><span style="font-size:20px">📦</span><div><strong style="color:#F5F0E8;display:block;margin-bottom:4px;">Clear Surplus</strong><span style="color:#A09882;font-size:14px;">Buy pristine leftover marble and tiles from luxury projects.</span></div></li>
+                  <li style="display:flex;align-items:flex-start;gap:12px;"><span style="font-size:20px">🔒</span><div><strong style="color:#F5F0E8;display:block;margin-bottom:4px;">Trade Safely</strong><span style="color:#A09882;font-size:14px;">Every transaction is backed by the Spolia Bond escrow.</span></div></li>
+                </ul>
+                <button id="spolia-welcome-close" style="width:100%;height:52px;border-radius:12px;background:#FFD700;color:#0D0D0D;border:none;font:600 15px/1 Inter,sans-serif;cursor:pointer;">Start Exploring</button>
+              </div>`;
+              document.body.appendChild(ov);
+              document.getElementById('spolia-welcome-close').addEventListener('click', () => ov.remove());
+            }
+          }, 500);
         }, 800);
       }
     }).catch(err => {

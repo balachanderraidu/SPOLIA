@@ -42,7 +42,7 @@ export class MaterialDetailScreen {
       </div>
 
       <!-- Content -->
-      <div style="padding-top:0;padding-bottom:120px">
+      <div style="padding-top:0;padding-bottom:160px">
         <!-- Title Section -->
         <div style="padding:var(--space-md)">
           <h1 style="font:var(--text-h1);color:var(--color-text-primary);margin-bottom:6px">${l.title}</h1>
@@ -195,7 +195,7 @@ export class MaterialDetailScreen {
       </div>
 
       <!-- Sticky CTA -->
-      <div style="position:fixed;bottom:var(--nav-height);left:50%;transform:translateX(-50%);
+      <div style="position:fixed;bottom:calc(var(--nav-height) + env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);
         width:100%;max-width:480px;padding:var(--space-md);background:rgba(13,13,13,0.95);
         backdrop-filter:blur(12px);border-top:1px solid var(--color-border);z-index:150">
           <!-- Sticky CTA layout: price left, co2 right, Bond button, Message button -->

@@ -1,6 +1,7 @@
 // components/radar.js — The Radar Discovery Feed
 import { FirebaseDB, MOCK_LISTINGS, MOCK_NOTIFICATIONS } from '../firebase-config.js';
 import { getExpiryUrgency, urgencyBadgeHtml } from '../utils/expiry.js';
+import { loadMap, getDistanceKm } from '../utils/maps.js';
 
 export class RadarScreen {
   constructor(el) {
@@ -31,10 +32,10 @@ export class RadarScreen {
     this._loadListings(this.activeFilter);
 
     // Demo mode: skip Firestore, use pre-seeded MOCK_NOTIFICATIONS
-    const isDemo = (() => { try { return sessionStorage.getItem('spolia_demo') === '1'; } catch { return false; } })();
+    const isDemo = window.DEMO_MODE || (() => { try { return sessionStorage.getItem('spolia_demo') === '1'; } catch { return false; } })();
     if (isDemo || window.isDemoMode?.()) {
-      if (!sessionStorage.getItem('spolia_demo_welcome_shown')) {
-          sessionStorage.setItem('spolia_demo_welcome_shown', '1');
+      if (!this.welcomeShown) {
+          this.welcomeShown = true;
           this._showWelcomeOverlay();
       }
 
@@ -66,10 +67,10 @@ export class RadarScreen {
     const overlay = document.createElement('div');
     overlay.style.cssText = `
       position:fixed;inset:0;z-index:9000;background:rgba(0,0,0,0.8);backdrop-filter:blur(8px);
-      display:flex;align-items:flex-end;justify-content:center;animation:fadeIn 300ms ease;
+      display:flex;align-items:flex-end;justify-content:center;
     `;
     overlay.innerHTML = `
-      <div style="background:var(--color-bg-surface);width:100%;max-width:480px;border-top-left-radius:24px;border-top-right-radius:24px;padding:32px 24px;transform:translateY(100%);animation:slideUp 400ms cubic-bezier(0.16, 1, 0.3, 1) forwards;">
+      <div style="background:var(--color-bg-surface);width:100%;max-width:480px;border-top-left-radius:24px;border-top-right-radius:24px;padding:32px 24px;">
         <h2 style="font:var(--text-h1);color:var(--color-gold);margin-bottom:16px;">Welcome to Spolia (Demo)</h2>
         <p style="font:var(--text-body);color:var(--color-text-secondary);margin-bottom:24px;line-height:1.6;">
           You are exploring a live simulation of India's first exclusive exchange for reclaimed materials.
@@ -329,7 +330,7 @@ export class RadarScreen {
     const feed = this.el.querySelector('#radar-feed');
 
     // ── DEMO MODE: use MOCK_LISTINGS, no Firestore call ──────────────────────
-    const isDemo = (() => { try { return sessionStorage.getItem('spolia_demo') === '1'; } catch { return false; } })();
+    const isDemo = window.DEMO_MODE || window.isDemoMode?.() || (() => { try { return sessionStorage.getItem('spolia_demo') === '1'; } catch { return false; } })();
     if (isDemo) {
       let list = filter === 'urgent'
         ? MOCK_LISTINGS.filter(l => l.isUrgentRescue || (l.expiryDate && getExpiryUrgency(l.expiryDate).level))
@@ -643,65 +644,51 @@ export class RadarScreen {
     overlay.id = 'map-overlay';
     overlay.style.cssText = 'position:fixed;inset:0;z-index:800;background:rgba(0,0,0,0.8);display:flex;align-items:flex-end;justify-content:center;animation:fadeIn 200ms ease';
 
-    const EMOJI_MAP = { stone:'🪨', marble:'🏛️', steel:'⚙️', wood:'🪵', brick:'🧱', bulk:'📦', plumbing:'🚰', cement:'🏗️' };
-    const TYPE_COLOR = { stone:'#8B6914', marble:'#A09882', steel:'#6B9DBF', wood:'#78553A', brick:'#C05C3C', bulk:'#6E6E6E', plumbing:'#4B9FD4', cement:'#888', marble:'#CCC' };
-
-    // Generate pseudo-random positions within the map canvas for each listing
-    const pins = MOCK_LISTINGS.slice(0, 12).map((l, i) => ({
-      ...l,
-      x: 10 + (l.location?.lng ? ((l.location.lng - 72.82) / 0.1) * 60 + 10 : (i * 23) % 80),
-      y: 10 + (l.location?.lat ? ((19.11 - l.location.lat) / 0.07) * 70 + 10 : (i * 17) % 80)
-    }));
-
-    const pinsHtml = pins.map(p => `
-      <button data-id="${p.id}" style="position:absolute;left:${Math.min(85,Math.max(5, p.x))}%;top:${Math.min(85,Math.max(5, p.y))}%;
-        transform:translate(-50%,-50%);background:var(--color-gold);color:#000;border:none;
-        border-radius:20px;padding:3px 8px;cursor:pointer;white-space:nowrap;
-        font:700 10px/1.4 Inter;box-shadow:0 2px 8px rgba(0,0,0,0.5);transition:transform 100ms"
-        title="${p.title}" onmouseenter="this.style.transform='translate(-50%,-50%) scale(1.15)'"
-        onmouseleave="this.style.transform='translate(-50%,-50%) scale(1)'">
-        ${EMOJI_MAP[p.type]||'📦'} ${p.distance}km
-      </button>`).join('');
+    const EMOJI_MAP = { stone:'🪨', marble:'🏛️', steel:'⚙️', wood:'🪵', brick:'🧱', bulk:'📦', plumbing:'🚰', cement:'🏗️', metal:'🔩' };
 
     overlay.innerHTML = `
       <div style="width:100%;max-width:480px;background:var(--color-bg-surface);border-radius:24px 24px 0 0;
-        padding:20px 20px max(24px,env(safe-area-inset-bottom));animation:slideUp 300ms cubic-bezier(0.32,0.72,0,1)">
-        <div style="width:40px;height:4px;background:#2A2A2A;border-radius:2px;margin:0 auto 14px"></div>
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
-          <h2 style="font:700 17px/1 var(--font-display);color:var(--color-gold)">📍 Radar Map — 5.2 km</h2>
-          <button id="map-close" style="background:var(--color-bg-elevated);border:1px solid var(--color-border);border-radius:50%;width:32px;height:32px;color:var(--color-text-secondary);cursor:pointer;font-size:14px">✕</button>
+        display:flex;flex-direction:column;
+        padding:20px 20px 0;animation:slideUp 300ms cubic-bezier(0.32,0.72,0,1);max-height:88vh;">
+        <div style="width:40px;height:4px;background:#2A2A2A;border-radius:2px;margin:0 auto 14px;flex-shrink:0"></div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-shrink:0">
+          <h2 style="font:700 17px/1 var(--font-display);color:var(--color-gold)">📍 Radar Map</h2>
+          <button id="map-close" style="background:var(--color-bg-elevated);border:1px solid var(--color-border);
+            border-radius:50%;width:32px;height:32px;color:var(--color-text-secondary);cursor:pointer;font-size:14px">✕</button>
         </div>
-        <!-- Map canvas -->
-        <div style="position:relative;width:100%;height:260px;background:linear-gradient(135deg,#0d1117 0%,#1a1f2e 100%);border-radius:16px;overflow:hidden;margin-bottom:14px;border:1px solid var(--color-border)">
-          <!-- Grid lines -->
-          ${[20,40,60,80].map(v => `
-            <div style="position:absolute;left:${v}%;top:0;bottom:0;border-left:1px solid rgba(255,255,255,0.04)"></div>
-            <div style="position:absolute;top:${v}%;left:0;right:0;border-top:1px solid rgba(255,255,255,0.04)"></div>`).join('')}
-          <!-- You are here crosshair -->
-          <div style="position:absolute;left:45%;top:55%;transform:translate(-50%,-50%)">
-            <div style="width:14px;height:14px;border-radius:50%;background:rgba(76,175,130,0.3);border:2px solid #4CAF82;animation:pulse 1.5s ease infinite;display:flex;align-items:center;justify-content:center">
-              <div style="width:5px;height:5px;border-radius:50%;background:#4CAF82"></div>
-            </div>
-          </div>
-          <!-- Listing pins -->
-          ${pinsHtml}
-          <!-- Distance rings -->
-          <div style="position:absolute;left:45%;top:55%;transform:translate(-50%,-50%);width:100px;height:100px;border-radius:50%;border:1px dashed rgba(255,215,0,0.1)"></div>
-          <div style="position:absolute;left:45%;top:55%;transform:translate(-50%,-50%);width:180px;height:180px;border-radius:50%;border:1px dashed rgba(255,215,0,0.06)"></div>
-          <div style="position:absolute;bottom:8px;left:10px;font:500 9px Inter;color:rgba(255,255,255,0.3)">Mumbai · Demo Mode</div>
-        </div>
-        <p style="font:400 11px/1.4 Inter;color:var(--color-text-muted);text-align:center;margin:0">Tap a pin to view listing details</p>
+        <!-- Real Google Map fills this div -->
+        <div id="gmap-container" style="width:100%;flex:1;min-height:320px;border-radius:16px;
+          overflow:hidden;margin-bottom:12px;border:1px solid var(--color-border);background:#161616"></div>
+        <p style="font:400 11px/1.4 Inter;color:var(--color-text-muted);text-align:center;
+          margin:0 0 max(16px,env(safe-area-inset-bottom));flex-shrink:0">Tap a pin to view listing details</p>
       </div>`;
 
     document.body.appendChild(overlay);
+
+    // ── Initialise real Google Map ──────────────────────────────────
+    const mapContainer = overlay.querySelector('#gmap-container');
+    const center = this.userLocation || { lat: 19.076, lng: 72.877 };
+
+    const listingsToPin = (this.listings?.length ? this.listings : MOCK_LISTINGS)
+      .filter(l => l.location?.lat && l.location?.lng);
+
+    const markers = listingsToPin.map(l => ({
+      lat: l.location.lat,
+      lng: l.location.lng,
+      title: l.title,
+      emoji: EMOJI_MAP[l.type] || '📦',
+      urgent: !!(l.isUrgentRescue || (l.expiryDate && getExpiryUrgency?.(l.expiryDate)?.level)),
+      onClick: () => {
+        overlay.remove();
+        window.navigate?.('material-detail', { listingId: l.id });
+      },
+    }));
+
+    loadMap(mapContainer, center, markers)
+      .catch(err => console.warn('[Radar] Map load error:', err));
+
     overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
     overlay.querySelector('#map-close')?.addEventListener('click', () => overlay.remove());
-    overlay.querySelectorAll('[data-id]').forEach(btn => {
-      btn.addEventListener('click', () => {
-        overlay.remove();
-        window.navigate?.('material-detail', { listingId: btn.dataset.id });
-      });
-    });
   }
 
 }

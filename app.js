@@ -9,22 +9,35 @@ function isDemoMode() {
         if (params.has('demo') || params.has('spolia_demo')) {
             sessionStorage.setItem('spolia_demo', '1');
             localStorage.setItem('spolia_demo', '1');
+            
+            // Force-show the welcome popup on fresh demo entry, regardless of old cached code
+            try {
+                sessionStorage.removeItem('spolia_demo_welcome_shown');
+                localStorage.removeItem('spolia_demo_welcome_shown');
+            } catch (e) {}
+
             const clean = window.location.pathname;
             history.replaceState(null, '', clean);
             return true;
         }
-        return sessionStorage.getItem('spolia_demo') === '1' || localStorage.getItem('spolia_demo') === '1';
+        const isSession = sessionStorage.getItem('spolia_demo') === '1';
+        const isLocal = localStorage.getItem('spolia_demo') === '1';
+        if (isLocal && !isSession) {
+            sessionStorage.setItem('spolia_demo', '1');
+        }
+        return isLocal || isSession;
     } catch {
         return false;
     }
 }
 window.isDemoMode = isDemoMode;
 const DEMO_MODE = isDemoMode();
+window.DEMO_MODE = DEMO_MODE;
 
 import { FirebaseAuth, FirebaseDB, MOCK_USER_PROFILE, MOCK_NOTIFICATIONS, MOCK_BONDS } from './firebase-config.js';
 import { LoginScreen }        from './components/login.js';
 import { OnboardingScreen }   from './components/onboarding.js';
-import { RadarScreen }        from './components/radar.js';
+import { RadarScreen }        from './components/radar.js?v=2';
 import { ScannerScreen }      from './components/scanner.js';
 import { ImpactScreen }       from './components/impact.js';
 import { VendorsScreen }      from './components/vendors.js';
@@ -187,7 +200,12 @@ export async function signOut() {
         App.currentUserProfile = null;
         App.isAuthenticated = false;
         // Reset demo mode on sign out
-        try { sessionStorage.removeItem('spolia_demo'); } catch (_) {}
+        try { 
+            sessionStorage.removeItem('spolia_demo'); 
+            localStorage.removeItem('spolia_demo');
+            sessionStorage.removeItem('spolia_demo_welcome_shown');
+            localStorage.removeItem('spolia_demo_welcome_shown');
+        } catch (_) {}
         navigate('login');
         showToast('Signed out successfully', 'info');
     } catch (err) {
